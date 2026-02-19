@@ -1,0 +1,10 @@
+menu "Lumari"
+
+config LUMARI_QEMU
+    bool "Build for QEMU emulator (virtual display, no hardware)"
+    default n
+    help
+        When enabled, the firmware uses the QEMU virtual RGB panel for display
+        and stubs touch/IMU/RTC. Run with: idf.py qemu --graphics monitor
+
+endmenu

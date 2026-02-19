@@ -9,3 +9,16 @@ void draw_sprite(
     int pos_x,
     int pos_y
 );
+
+void draw_fill_circle(
+    uint16_t* framebuffer,
+    int cx, int cy, int radius,
+    uint16_t color
+);
+
+/* Draw a non-negative integer (0–9999) at (x,y), 5x7 digits, right-aligned. */
+void draw_number(
+    uint16_t* framebuffer,
+    int x, int y, unsigned value,
+    uint16_t color
+);
