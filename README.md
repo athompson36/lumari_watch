@@ -28,6 +28,12 @@ Other boards can be supported by defining a different board in config and implem
 - [ESP-IDF](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-guides/get-started.html) (v5.x recommended)
 - For Waveshare 2.06: **ESP32-S3** target, 8MB PSRAM
 
+**Full audit and one-shot install:** See **[docs/DEPENDENCIES.md](docs/DEPENDENCIES.md)** for the complete dependency list. To install ESP-IDF and system deps (macOS or Linux), run from the repo root:
+
+```bash
+./scripts/install_dependencies.sh
+```
+
 ## Project structure
 
 ```
@@ -37,7 +43,7 @@ lumari_watch/
 │   ├── config/           # lumari_config.h (resolution, FPS)
 │   ├── creature/         # Creature logic and rendering hook
 │   ├── engine/           # Render engine, framebuffer, layers, sprites
-│   ├── hal/              # Display HAL (init, flush)
+│   ├── display_hal/      # Display HAL (init, flush)
 │   └── services/         # Time service (stub for RTC)
 ├── sdkconfig.defaults    # SPIRAM, LCD, main stack size
 └── CMakeLists.txt
@@ -54,7 +60,7 @@ idf.py build
 idf.py -p /dev/tty.usbmodem* flash monitor
 ```
 
-Dependencies (CO5300 display, QMI8658 IMU) are pulled via the component manager from `idf_component.yml` in `components/hal` and `components/services`.
+Dependencies (CO5300 display, QMI8658 IMU) are pulled via the component manager from `idf_component.yml` in `components/display_hal` and `components/services`.
 
 ### Run in QEMU (no hardware)
 
@@ -69,25 +75,50 @@ python $IDF_PATH/tools/idf_tools.py install qemu-xtensa qemu-riscv32
 ```
 
 On Linux (e.g. Ubuntu) install: `libgcrypt20 libglib2.0-0 libpixman-1-0 libsdl2-2.0-0 libslirp0`.  
-On macOS: `brew install libgcrypt libglib pixman sdl2 libslirp`.
+On macOS: `brew install libgcrypt glib pixman sdl2 libslirp` (full list: [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md)).
 
-**2. Enable QEMU build**
+**2. Build for QEMU**
+
+Either use the QEMU defaults file (no menuconfig):
 
 ```bash
 idf.py set-target esp32s3
-idf.py menuconfig
-# → Lumari → [*] Build for QEMU emulator (virtual display, no hardware)
-# Save and exit
+SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.qemu" idf.py build
 ```
 
-**3. Build and run with graphics**
+Or enable in menuconfig: `idf.py menuconfig` → **Lumari** → `[*] Build for QEMU emulator`, then `idf.py build`.
+
+**3. Run with graphics**
 
 ```bash
-idf.py build
 idf.py qemu --graphics monitor
 ```
 
-A window shows the 410×502 virtual display (Phase 0 circle demo or Phase 1 seedling, depending on `LUMARI_RUN_PHASE0`). Console output appears in the terminal. Exit QEMU with Ctrl-A then `q`.
+With a QEMU build that includes the virtual framebuffer device, a window would show the display. The **Espressif prebuilt QEMU** (from `idf_tools.py install qemu-xtensa`) does **not** include that device, so **no SDL window appears** — the app runs and serial output appears in the terminal only. Exit QEMU with Ctrl-A then `q`.
+
+**If the window doesn’t open:**
+
+1. **Run from a normal terminal** (not a background/IDE task) so the SDL window can open:
+   ```bash
+   cd /path/to/lumari_watch
+   . $IDF_PATH/export.sh
+   ./run_qemu.sh
+   ```
+   Or run `idf.py qemu --graphics monitor` yourself after sourcing IDF.
+
+2. **Use a QEMU build.** The firmware must be built with the QEMU board config or the virtual display won’t be used. Rebuild once (source ESP-IDF first; see item 5 below if `idf.py` is not found):
+   ```bash
+   SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.qemu" idf.py build
+   ```
+   Then run `idf.py qemu --graphics monitor`. The script `run_qemu.sh` does this check and rebuild for you.
+
+3. **Install SDL2** (required for the graphics window). On macOS: `brew install sdl2`. On Ubuntu/Debian: `sudo apt-get install libsdl2-2.0-0`.
+
+4. **Build keeps re-running CMake (loop):** Avoid `idf.py -v build`; it can trigger repeated reconfiguration. If the build loops, do a full clean and build once: `rm -rf build managed_components` then `./run_qemu.sh` or (after sourcing IDF) `SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.qemu" idf.py build`. If you see the CO5300 "include directory is not a directory" error, run `./scripts/fix_co5300_headers.sh` once, then (in the same shell) source IDF and build again.
+
+5. **`idf.py: command not found`:** Source the ESP-IDF environment first in the same terminal: `source "$(cat .idf_path)/export.sh"` or `. $IDF_PATH/export.sh`. Or use `./run_qemu.sh`, which sources IDF for you.
+
+6. **"Timed out waiting for port 5555 to be open":** `run_qemu.sh` runs QEMU in the foreground (serial in the same terminal) so the port is not used and the timeout is avoided. To use monitor on a separate port, run `idf.py qemu --graphics monitor` from a real terminal (not over SSH); if it still times out, use `./run_qemu.sh` instead.
 
 ## Configuration
 

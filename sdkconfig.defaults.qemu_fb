@@ -1,0 +1,7 @@
+# QEMU emulator with real framebuffer (use with custom-built QEMU from Espressif fork).
+# Use when LUMARI_QEMU_BUILD_DIR is set so the SDL display window works.
+# Build: SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.qemu_fb" idf.py build
+CONFIG_LUMARI_BOARD_QEMU=y
+CONFIG_LUMARI_QEMU=n
+# QEMU has no PSRAM; use internal RAM only.
+CONFIG_SPIRAM=n

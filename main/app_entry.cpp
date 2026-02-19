@@ -1,6 +1,7 @@
 #include "lumari_config.h"
 #include "render_engine.h"
 #include "creature_engine.h"
+#include "quest_engine.h"
 #include "input_hal.h"
 #include "time_service.h"
 #include "imu_service.h"
@@ -25,6 +26,7 @@ extern "C" void app_entry_start(void)
     time_service_init();
     imu_service_init();
     creature_engine_init();
+    quest_engine_init();
 
     bool menu_open = false;
     bool btn_prev = false;
@@ -59,8 +61,10 @@ extern "C" void app_entry_start(void)
         }
 
         unsigned step_delta = imu_service_get_step_delta();
-        if (step_delta > 0)
-            creature_engine_add_xp(step_delta);
+        if (step_delta > 0) {
+            quest_engine_add_progress(QUEST_TYPE_STEPS, step_delta);
+            creature_engine_add_steps(step_delta);
+        }
 
         int16_t ax = 0, ay = 0, az = 0;
         imu_service_read_accel(&ax, &ay, &az);

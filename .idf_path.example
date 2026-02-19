@@ -1,0 +1,7 @@
+# Path to your ESP-IDF installation (one line, no quotes).
+# Copy to .idf_path and edit:  cp .idf_path.example .idf_path
+#
+# To find it: in a terminal where "idf.py" works, run:  dirname $(dirname $(which idf.py))
+# Or check your ESP-IDF extension / installer (e.g. ~/.espressif, or the folder that contains export.sh).
+#
+# /path/to/esp-idf

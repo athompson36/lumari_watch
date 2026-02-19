@@ -3,7 +3,7 @@
 #include "sdkconfig.h"
 
 /* Board selection: QEMU (from menuconfig) or Waveshare (default) */
-#if defined(CONFIG_LUMARI_QEMU) && CONFIG_LUMARI_QEMU
+#if defined(CONFIG_LUMARI_BOARD_QEMU) && CONFIG_LUMARI_BOARD_QEMU
 #define LUMARI_BOARD_QEMU 1
 #else
 #define LUMARI_BOARD_WAVESHARE_ESP32_S3_AMOLED_2_06 1
@@ -12,8 +12,17 @@
 /* 1 = Phase 0 demo (circle, touch, button, shake). 0 = Phase 1 Lumari loop (seedling + XP). */
 #define LUMARI_RUN_PHASE0  1
 
+#if LUMARI_BOARD_QEMU
+/* QEMU: same aspect ratio as hardware (410:502 per Waveshare wiki / BOARD_FIRMWARE_CONTEXT.md).
+ * Resolution reduced so framebuffer fits in internal RAM (no PSRAM in emulator).
+ * 198×240 preserves 410/502 ≈ 0.817; RGB565 framebuffer = 95,040 bytes. */
+#define SCREEN_WIDTH  198
+#define SCREEN_HEIGHT 240
+#else
+/* Hardware: Waveshare ESP32-S3-Touch-AMOLED-2.06 — 2.06" AMOLED 410×502, 16.7M colors, CO5300 QSPI. */
 #define SCREEN_WIDTH  410
 #define SCREEN_HEIGHT 502
+#endif
 
 #define TARGET_FPS_IDLE   30
 #define TARGET_FPS_ACTIVE 60
@@ -22,7 +31,9 @@
 
 /* QEMU: virtual RGB panel only; touch/IMU/RTC stubbed */
 #undef LUMARI_BOARD_WAVESHARE_ESP32_S3_AMOLED_2_06
-#define BUTTON_PIN  0
+#define BUTTON_PIN       0
+#define LCD_SPI_HOST     SPI2_HOST
+#define TOUCH_PIN_CS     (-1)
 
 #elif LUMARI_BOARD_WAVESHARE_ESP32_S3_AMOLED_2_06
 

@@ -66,10 +66,10 @@ We build in **5 layers**. Each phase should produce something **usable**.
 
 **Deliver:**
 
-- Add quest → complete quest → XP increases
-- Unlock & equip accessory
-- Craft simple aura
-- Momentum meter animates
+- [x] Add quest → complete quest → XP increases (quest_engine: STEPS 50/100/200 → 10/25/50 XP)
+- [ ] Unlock & equip accessory
+- [ ] Craft simple aura
+- [x] Momentum meter animates (bar bottom; +2/step cap 100, decay/frame; quest HUD top-left)
 
 **Milestone:** “It works.”
 

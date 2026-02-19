@@ -1,0 +1,97 @@
+diff --git a/hw/display/esp_rgb.c b/hw/display/esp_rgb.c
+index 345ef37..d719e6b 100644
+--- a/hw/display/esp_rgb.c
++++ b/hw/display/esp_rgb.c
+@@ -18,10 +18,15 @@
+ #include "ui/console.h"
+ #include "qemu/error-report.h"
+ #include "sysemu/dma.h"
++#include "exec/memory.h"
+ 
+ #define RGB_WARNING 1
+ #define RGB_DEBUG   0
+ 
++/* Guest physical base addresses for ESP32S3; subregion AS use offset addressing */
++#define ESP_RGB_VRAM_BASE    0x20000000
++#define ESP_RGB_INTRAM_BASE 0x3FC80000
++
+ #define RGB_VERSION_MAJOR 0
+ #define RGB_VERSION_MINOR 2
+ 
+@@ -184,23 +189,34 @@ static void rgb_update(void* opaque)
+ 
+     if (s->con && s->update_area) {
+         uint32_t src = s->color_content;
+-        AddressSpace* src_as = NULL;
+ 
+-        /* Since we are in a 32bpp configuration, it's enough to cast the framebuffer
+-         * as a uint32_t pointer */
+         const int bpp = s->bpp;
+-        uint8_t* data = surface_data(qemu_console_surface(s->con));
++        uint8_t *data = surface_data(qemu_console_surface(s->con));
+ 
+-        /* Width and height of the area to update */
+         const int width = s->to_x - s->from_x;
+         const int height = s->to_y - s->from_y;
+-        const int bytes_per_pixel = bpp/8;
++        const int bytes_per_pixel = bpp / 8;
+         const int total_bytes = width * height * bytes_per_pixel;
+ 
+-        if (address_space_access_valid(&s->vram_as, src, total_bytes, false, MEMTXATTRS_UNSPECIFIED)) {
+-            src_as = &s->vram_as;
+-        } else if (address_space_access_valid(&s->intram_as, src, total_bytes, false, MEMTXATTRS_UNSPECIFIED)) {
+-            src_as = &s->intram_as;
++        /*
++         * Resolve source to a host pointer.  The guest writes pixel data into
++         * either the dedicated VRAM (mapped at ESP_RGB_VRAM_BASE) or into
++         * internal DRAM (mapped at ESP_RGB_INTRAM_BASE).  Both are plain RAM
++         * MemoryRegions so we can obtain a direct host pointer with
++         * memory_region_get_ram_ptr and memcpy -- this avoids any FlatView /
++         * AddressSpace resolution issues that arise when the MR is also a
++         * subregion of system memory.
++         */
++        uint8_t *host_src = NULL;
++
++        if (src >= ESP_RGB_VRAM_BASE &&
++            (hwaddr)src + total_bytes <= (hwaddr)ESP_RGB_VRAM_BASE + memory_region_size(&s->vram)) {
++            host_src = (uint8_t *)memory_region_get_ram_ptr(&s->vram)
++                       + (src - ESP_RGB_VRAM_BASE);
++        } else if (s->intram && src >= ESP_RGB_INTRAM_BASE &&
++                   (hwaddr)src + total_bytes <= (hwaddr)ESP_RGB_INTRAM_BASE + memory_region_size(s->intram)) {
++            host_src = (uint8_t *)memory_region_get_ram_ptr(s->intram)
++                       + (src - ESP_RGB_INTRAM_BASE);
+         } else {
+             s->update_area = false;
+ #if RGB_WARNING
+@@ -209,19 +225,15 @@ static void rgb_update(void* opaque)
+             return;
+         }
+ 
+-        /* Only perform the copy if the area is valid */
+         if (width > 0 && height > 0 &&
+             (s->from_x + width) <= s->width && (s->from_y + height) <= s->height) {
+ 
+-            uint8_t* dest = data + (s->from_y * s->width + s->from_x) * bytes_per_pixel;
++            uint8_t *dest = data + (s->from_y * s->width + s->from_x) * bytes_per_pixel;
+ 
+-            /* Copy the pixels to the framebuffer */
+             for (int i = 0; i < height; i++) {
+-                dma_memory_read(src_as, src, dest, width * bytes_per_pixel, MEMTXATTRS_UNSPECIFIED);
+-                /* Go to the next line in the destination */
++                memcpy(dest, host_src, width * bytes_per_pixel);
+                 dest += s->width * bytes_per_pixel;
+-                /* Same goes for the source */
+-                src += width * bytes_per_pixel;
++                host_src += width * bytes_per_pixel;
+             }
+ 
+             dpy_gfx_update(s->con, s->from_x, s->from_y, width, height);
+@@ -232,8 +244,6 @@ static void rgb_update(void* opaque)
+         }
+ #endif
+ 
+-        /* Automatically clear the update flag, the guest can re-use the given color_content buffer.
+-         * It must set it again to trigger another update. */
+         s->update_area = false;
+     }
+ }

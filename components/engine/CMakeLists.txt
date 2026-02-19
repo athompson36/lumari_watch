@@ -5,5 +5,5 @@ idf_component_register(
         "layer_manager.cpp"
         "sprite_renderer.cpp"
     INCLUDE_DIRS "."
-    REQUIRES hal config
+    REQUIRES display_hal config creature quest freertos
 )

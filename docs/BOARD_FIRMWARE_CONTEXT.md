@@ -168,4 +168,36 @@ Lumari does not use audio in the current HAL.
 
 ---
 
+## 15. QEMU emulator configuration
+
+The emulator is configured to match the **Waveshare ESP32-S3-Touch-AMOLED-2.06** hardware (this document and [Waveshare wiki](https://www.waveshare.com/wiki/ESP32-S3-Touch-AMOLED-2.06)) where possible when running under ESP-IDF's QEMU (Espressif fork, esp32s3 machine).
+
+| Item | Hardware (datasheet / wiki) | QEMU emulator |
+|------|-----------------------------|---------------|
+| **SoC** | ESP32-S3R8, 512KB SRAM, 8MB PSRAM, 32MB Flash | ESP32-S3; **no PSRAM** (CONFIG_SPIRAM=n in sdkconfig.defaults.qemu) so framebuffer must fit in internal RAM. |
+| **Display resolution** | **410×502** (2.06" AMOLED, CO5300 QSPI, RGB565) | **198×240** — same **aspect ratio** (410:502 ≈ 0.817) so UI layout matches; reduced size for RAM. |
+| **Display interface** | CO5300 over QSPI | Virtual RGB panel (esp_lcd_qemu_rgb); `idf.py qemu --graphics` opens SDL window. |
+| **Color format** | RGB565 | RGB565 (RGB_QEMU_BPP_16). |
+| **Touch** | FT3168 I2C 0x38, RST=9, INT=38 | Stubbed (no touch in QEMU). |
+| **Buttons** | BOOT=GPIO0, PWR=GPIO10 | BOOT pin defined for build; input stubbed. |
+| **IMU / RTC** | QMI8658, PCF85063 on I2C 14/15 | Stubbed. |
+
+**Run:** `./run_qemu.sh` (sources IDF, ensures QEMU build with `sdkconfig.defaults` + `sdkconfig.defaults.qemu`, then `idf.py qemu --graphics`). Exit: Ctrl-A then q.
+
+**No GUI with prebuilt QEMU:** The Espressif prebuilt QEMU (from `idf_tools.py install qemu-xtensa`) does **not** map the virtual framebuffer device at `0x21000000`, so no SDL window appears (stub mode, serial only).
+
+**GUI with custom-built QEMU:** Build QEMU from [Espressif’s fork](https://github.com/espressif/qemu) (branch `esp-develop`), then use it so the SDL window shows:
+
+```bash
+./scripts/build_qemu_from_fork.sh          # clone, apply display fix patch, build (default: $HOME/esp/qemu-espressif)
+export LUMARI_QEMU_BUILD_DIR="$HOME/esp/qemu-espressif"
+./run_qemu.sh                              # uses custom QEMU and rebuilds with real framebuffer
+```
+
+**Black screen fix:** The upstream esp-develop RGB device uses subregion address spaces with offset addressing; the guest framebuffer at `0x20000000` must be translated to a region offset. The project applies `scripts/patches/qemu-esp_rgb-address-translation.patch` automatically when you run `build_qemu_from_fork.sh`. Without this patch, the SDL window can open but stay black.
+
+**Dependencies:** System libs for QEMU (SDL2, libgcrypt, glib, pixman, libslirp) and optional QEMU binaries: see [docs/DEPENDENCIES.md](DEPENDENCIES.md) §2 and §5.
+
+---
+
 This file is the single place to look for a full picture of the board’s hardware and how official/community firmware and Lumari use it. For links and a short “how to use” workflow, see [HARDWARE_REFERENCES.md](HARDWARE_REFERENCES.md).

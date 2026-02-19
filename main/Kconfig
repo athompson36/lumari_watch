@@ -1,10 +1,20 @@
 menu "Lumari"
 
-config LUMARI_QEMU
-    bool "Build for QEMU emulator (virtual display, no hardware)"
+config LUMARI_BOARD_QEMU
+    bool "Target QEMU emulator (reduced resolution, stubbed peripherals)"
     default n
     help
-        When enabled, the firmware uses the QEMU virtual RGB panel for display
-        and stubs touch/IMU/RTC. Run with: idf.py qemu --graphics monitor
+        Selects the QEMU board profile: 198x240 display, stubbed touch/IMU/RTC.
+        Set this for ANY QEMU build (both stub and real-framebuffer modes).
+
+config LUMARI_QEMU
+    bool "Use stub framebuffer (prebuilt QEMU without RGB device)"
+    default n
+    depends on LUMARI_BOARD_QEMU
+    help
+        When enabled, the QEMU RGB driver uses a heap-backed stub instead of the
+        virtual device at 0x21000000. Use this with prebuilt QEMU (idf_tools).
+        When disabled (but LUMARI_BOARD_QEMU is set), the real QEMU RGB device
+        is used and an SDL window shows the framebuffer.
 
 endmenu

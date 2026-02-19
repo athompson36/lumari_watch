@@ -1,0 +1,7 @@
+# QEMU emulator board config (virtual display, stubbed touch/IMU/RTC).
+# Use with: SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.qemu" idf.py build
+# Then run: idf.py qemu --graphics monitor
+CONFIG_LUMARI_BOARD_QEMU=y
+CONFIG_LUMARI_QEMU=y
+# QEMU has no PSRAM; use internal RAM only.
+CONFIG_SPIRAM=n

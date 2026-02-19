@@ -7,6 +7,9 @@ sdkconfig.old
 # Managed components (dependencies.lock can be committed if you use idf.py add-dependency)
 managed_components/
 
+# Local ESP-IDF path (optional; create .idf_path with path to esp-idf for run_qemu.sh)
+.idf_path
+
 # IDE / editor
 .vscode/
 .idea/

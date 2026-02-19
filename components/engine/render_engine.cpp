@@ -3,6 +3,8 @@
 #include "layer_manager.h"
 #include "display_hal.h"
 #include "lumari_config.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 static uint16_t* frame_buffer = nullptr;
 static uint32_t frame_delay_ms = 1000 / TARGET_FPS_IDLE;

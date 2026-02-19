@@ -1,0 +1,5 @@
+description: "Display and board HAL for Lumari"
+dependencies:
+  # v1.0.2: registry package omits include/ and priv_include/; scripts/fix_co5300_headers.sh repairs it
+  espressif/esp_lcd_co5300: "1.0.2"
+  espressif/esp_lcd_qemu_rgb: "*"
