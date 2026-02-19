@@ -1,0 +1,37 @@
+# ESP-IDF build
+build/
+sdkconfig
+sdkconfig.old
+# keep sdkconfig.defaults - do not use sdkconfig.*
+
+# Managed components (dependencies.lock can be committed if you use idf.py add-dependency)
+managed_components/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+
+# Debug / coverage
+*.gcda
+*.gcno
+coverage.info
+pytest_embedded_log/
+pytest-embedded/
+
+# Build summaries (optional)
+build_summary_*.xml
+app_info_*.txt
+size_info*.txt
