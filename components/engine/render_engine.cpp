@@ -15,10 +15,10 @@ void render_engine_init()
     display_hal_init();
 }
 
-void render_engine_frame(bool menu_open)
+void render_engine_frame(bool menu_open, uint32_t time_ms, bool lore_menu_open)
 {
     framebuffer_clear(0x0000);
-    layer_manager_render(frame_buffer, menu_open);
+    layer_manager_render(frame_buffer, menu_open, time_ms, lore_menu_open);
     display_hal_flush(frame_buffer);
     vTaskDelay(pdMS_TO_TICKS(frame_delay_ms));
 }

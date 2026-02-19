@@ -12,6 +12,9 @@ typedef enum {
 /* Call once at startup */
 void quest_engine_init(void);
 
+/* Restore state from storage (index 0-based, progress toward current goal) */
+void quest_engine_set_state(unsigned quest_index, uint32_t progress);
+
 /* Add progress for the current quest. When goal is reached, rewards XP and advances. */
 void quest_engine_add_progress(quest_type_t type, uint32_t amount);
 

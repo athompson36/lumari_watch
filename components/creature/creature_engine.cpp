@@ -1,5 +1,6 @@
 #include "creature_engine.h"
 #include "sprite_renderer.h"
+#include "inventory_engine.h"
 #include "lumari_config.h"
 
 /* Phase 1: Lumari Seedling – pastel blob + XP stub. Phase 2: momentum meter */
@@ -39,14 +40,44 @@ void creature_engine_add_xp(unsigned n)
         s_xp += n;
 }
 
+bool creature_engine_spend_xp(unsigned amount)
+{
+    if (s_xp < amount)
+        return false;
+    s_xp -= amount;
+    return true;
+}
+
+unsigned creature_engine_get_xp(void)
+{
+    return s_xp;
+}
+
+unsigned creature_engine_get_momentum(void)
+{
+    return s_momentum;
+}
+
+void creature_engine_set_state(unsigned xp, unsigned momentum)
+{
+    s_xp = (xp > 9999u) ? 9999u : xp;
+    s_momentum = (momentum > 100u) ? 100u : momentum;
+}
+
 void creature_engine_render(uint16_t *framebuffer)
 {
     int cx = SCREEN_WIDTH / 2;
     int cy = SCREEN_HEIGHT / 2;
 
     /* Seedling: two overlapping circles (body + head) */
-    draw_fill_circle(framebuffer, cx, cy, 40, SEEDLING_COLOR_BODY);
-    draw_fill_circle(framebuffer, cx, cy - 28, 24, SEEDLING_COLOR_HEAD);
+    const int body_r = 40;
+    const int head_r = 24;
+    const int head_offset_y = 28;
+    draw_fill_circle(framebuffer, cx, cy, body_r, SEEDLING_COLOR_BODY);
+    draw_fill_circle(framebuffer, cx, cy - head_offset_y, head_r, SEEDLING_COLOR_HEAD);
+
+    /* Accessory layer (hat/body) */
+    inventory_draw_accessory(framebuffer, cx, cy - head_offset_y, cy, body_r, head_r);
 
     /* XP counter (top-right) */
     draw_number(framebuffer, SCREEN_WIDTH - 36, 10, s_xp, XP_COLOR);

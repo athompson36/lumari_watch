@@ -67,8 +67,8 @@ We build in **5 layers**. Each phase should produce something **usable**.
 **Deliver:**
 
 - [x] Add quest → complete quest → XP increases (quest_engine: STEPS 50/100/200 → 10/25/50 XP)
-- [ ] Unlock & equip accessory
-- [ ] Craft simple aura
+- [x] Unlock & equip accessory
+- [x] Craft simple aura
 - [x] Momentum meter animates (bar bottom; +2/step cap 100, decay/frame; quest HUD top-left)
 
 **Milestone:** “It works.”
@@ -83,10 +83,10 @@ We build in **5 layers**. Each phase should produce something **usable**.
 
 **Deliver:**
 
-- First Lumari evolution cutscene
-- First Aetheron intro cutscene
-- Pixel mode cutscene
-- Replayable in lore menu
+- [x] First Lumari evolution cutscene (4 slides, tap-to-advance; auto-plays at 100 XP, replayable from LORE)
+- [ ] First Aetheron intro cutscene
+- [ ] Pixel mode cutscene
+- [x] Replayable in lore menu (LORE → Evolution)
 
 **At this stage:** Feels like a real RPG world.
 

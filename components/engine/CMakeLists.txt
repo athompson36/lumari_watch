@@ -5,5 +5,5 @@ idf_component_register(
         "layer_manager.cpp"
         "sprite_renderer.cpp"
     INCLUDE_DIRS "."
-    REQUIRES display_hal config creature quest freertos
+    REQUIRES display_hal config creature quest inventory aura cutscene freertos
 )

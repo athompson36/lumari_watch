@@ -172,6 +172,29 @@ static void draw_char5x7(uint16_t* fb, int x, int y, uint8_t c, uint16_t color)
     }
 }
 
+void draw_fill_triangle(
+    uint16_t* framebuffer,
+    int cx, int cy, int half_width, int height,
+    uint16_t color
+)
+{
+    int y_top = cy - height / 2;
+    int y_bot = cy + height / 2;
+    for (int y = y_top; y <= y_bot; y++) {
+        /* Linear interpolation: at y_top width=0, at y_bot width=2*half_width */
+        int dy = y - y_top;
+        int denom = height;
+        int half_w = (denom <= 0) ? 0 : (half_width * dy) / denom;
+        if (half_w > half_width) half_w = half_width;
+        int x_left = cx - half_w;
+        int x_right = cx + half_w;
+        for (int x = x_left; x <= x_right; x++) {
+            if (x >= 0 && x < SCREEN_WIDTH && y >= 0 && y < SCREEN_HEIGHT)
+                framebuffer[y * SCREEN_WIDTH + x] = color;
+        }
+    }
+}
+
 void draw_string(
     uint16_t* framebuffer,
     int x, int y, const char* str,
@@ -190,5 +213,27 @@ void draw_string(
             draw_char5x7(framebuffer, cx, y, (uint8_t)(c - 'a' + 1), color);
         }
         cx += CHAR_W + 1;
+    }
+}
+
+void draw_ring(
+    uint16_t* framebuffer,
+    int cx, int cy, int r_inner, int r_outer,
+    uint16_t color
+)
+{
+    if (r_inner < 0) r_inner = 0;
+    if (r_outer <= r_inner) return;
+    int r_in_sq = r_inner * r_inner;
+    int r_out_sq = r_outer * r_outer;
+    for (int dy = -r_outer; dy <= r_outer; dy++) {
+        for (int dx = -r_outer; dx <= r_outer; dx++) {
+            int d_sq = dx * dx + dy * dy;
+            if (d_sq > r_out_sq || d_sq < r_in_sq) continue;
+            int x = cx + dx;
+            int y = cy + dy;
+            if (x >= 0 && x < SCREEN_WIDTH && y >= 0 && y < SCREEN_HEIGHT)
+                framebuffer[y * SCREEN_WIDTH + x] = color;
+        }
     }
 }

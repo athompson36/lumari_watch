@@ -35,3 +35,17 @@ void draw_string(
     int x, int y, const char* str,
     uint16_t color
 );
+
+/* Isosceles triangle, apex at top: center (cx,cy), half_width and height. */
+void draw_fill_triangle(
+    uint16_t* framebuffer,
+    int cx, int cy, int half_width, int height,
+    uint16_t color
+);
+
+/* Ring (annulus): inner radius r_inner, outer radius r_outer. */
+void draw_ring(
+    uint16_t* framebuffer,
+    int cx, int cy, int r_inner, int r_outer,
+    uint16_t color
+);

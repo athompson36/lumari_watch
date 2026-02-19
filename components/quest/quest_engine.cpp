@@ -25,6 +25,15 @@ void quest_engine_init(void)
     s_just_completed = false;
 }
 
+void quest_engine_set_state(unsigned quest_index, uint32_t progress)
+{
+    if (quest_index >= s_quest_count)
+        quest_index = 0;
+    s_current = quest_index;
+    s_progress = progress;
+    s_just_completed = false;
+}
+
 void quest_engine_add_progress(quest_type_t type, uint32_t amount)
 {
     s_just_completed = false;
