@@ -48,11 +48,11 @@ We build in **5 layers**. Each phase should produce something **usable**.
 
 **Deliver:**
 
-- Lumari Seedling (pastel)
-- Simple XP counter
-- Long press → system menu
-- Sleep/wake wrist rotation
-- Step counter working (XP stub)
+- [x] Lumari Seedling (pastel)
+- [x] Simple XP counter
+- [x] Long press → system menu (tap to close)
+- [x] Sleep/wake wrist rotation (IMU face-down/up)
+- [x] Step counter working (XP stub)
 
 **At end of Phase 1:** A living creature on your wrist. No quests, no inventory — just alive.
 

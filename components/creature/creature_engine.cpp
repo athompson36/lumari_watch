@@ -17,6 +17,15 @@ void creature_engine_update(void)
 {
 }
 
+void creature_engine_add_xp(unsigned n)
+{
+    const unsigned cap = 9999;
+    if (s_xp + n > cap)
+        s_xp = cap;
+    else
+        s_xp += n;
+}
+
 void creature_engine_render(uint16_t *framebuffer)
 {
     int cx = SCREEN_WIDTH / 2;

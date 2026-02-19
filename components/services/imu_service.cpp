@@ -20,6 +20,14 @@ static float s_last_ax = 0, s_last_ay = 0, s_last_az = 0;
 static int64_t s_last_shake_ms = 0;
 #define SHAKE_MAGNITUDE_THRESHOLD  18.0f
 #define SHAKE_DEBOUNCE_MS          500
+
+/* Simple step detection: magnitude peak then drop. */
+static bool s_step_was_high = false;
+static int64_t s_step_last_ms = 0;
+static unsigned s_step_delta = 0;
+#define STEP_MAG_HIGH  12.5f
+#define STEP_MAG_LOW   10.0f
+#define STEP_MIN_MS    280
 #endif
 
 void imu_service_init(void)
@@ -85,5 +93,38 @@ bool imu_service_shake_detected(void)
     return false;
 #else
     return false;
+#endif
+}
+
+#if LUMARI_BOARD_WAVESHARE_ESP32_S3_AMOLED_2_06
+static void imu_service_poll_step(void)
+{
+    if (!s_imu_ok) return;
+    qmi8658_data_t data;
+    bool ready = false;
+    if (qmi8658_is_data_ready(&s_qmi, &ready) != ESP_OK || !ready) return;
+    if (qmi8658_read_sensor_data(&s_qmi, &data) != ESP_OK) return;
+    float ax = (float)data.accelX, ay = (float)data.accelY, az = (float)data.accelZ;
+    float mag = sqrtf(ax * ax + ay * ay + az * az);
+    int64_t now_ms = esp_timer_get_time() / 1000;
+    if (mag >= STEP_MAG_HIGH)
+        s_step_was_high = true;
+    else if (mag <= STEP_MAG_LOW && s_step_was_high && (now_ms - s_step_last_ms) >= STEP_MIN_MS) {
+        s_step_was_high = false;
+        s_step_last_ms = now_ms;
+        s_step_delta++;
+    }
+}
+#endif
+
+unsigned imu_service_get_step_delta(void)
+{
+#if LUMARI_BOARD_WAVESHARE_ESP32_S3_AMOLED_2_06
+    imu_service_poll_step();
+    unsigned d = s_step_delta;
+    s_step_delta = 0;
+    return d;
+#else
+    return 0;
 #endif
 }

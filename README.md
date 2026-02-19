@@ -21,6 +21,8 @@ Full plan: **[ROADMAP.md](ROADMAP.md)** (Phases 0–7: bring-up → Lumari core 
 
 Other boards can be supported by defining a different board in config and implementing the corresponding HAL paths.
 
+**Hardware & BSP links:** [docs/HARDWARE_REFERENCES.md](docs/HARDWARE_REFERENCES.md) — Waveshare wiki, official BSP, OLEDS3Watch, and community display/touch notes.
+
 ## Requirements
 
 - [ESP-IDF](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-guides/get-started.html) (v5.x recommended)

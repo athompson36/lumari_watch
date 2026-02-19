@@ -22,3 +22,16 @@ void draw_number(
     int x, int y, unsigned value,
     uint16_t color
 );
+
+void draw_rect(
+    uint16_t* framebuffer,
+    int x, int y, int w, int h,
+    uint16_t color
+);
+
+/* Draw a string (5x7 uppercase + space). */
+void draw_string(
+    uint16_t* framebuffer,
+    int x, int y, const char* str,
+    uint16_t color
+);
