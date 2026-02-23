@@ -10,14 +10,23 @@
 #define MENU_OVERLAY_COLOR  0x3186
 #define MENU_TEXT_COLOR     0xFFFF
 #define QUEST_COLOR        0x07E0
-#define MENU_CRAFT_TOP_Y   40
-#define MENU_CRAFT_BOT_Y   78
-#define MENU_LORE_TOP_Y    118
-#define MENU_LORE_BOT_Y    148
-#define LORE_BACK_TOP_Y    40
-#define LORE_BACK_BOT_Y    70
-#define LORE_EVOLUTION_TOP_Y  82
-#define LORE_EVOLUTION_BOT_Y  108
+/* Menu Y positions as fractions of SCREEN_HEIGHT (502 on HW) so QEMU 198×240 works. */
+#define MENU_CRAFT_TOP_Y    (40 * SCREEN_HEIGHT / 502)
+#define MENU_CRAFT_BOT_Y    (78 * SCREEN_HEIGHT / 502)
+#define MENU_LORE_TOP_Y     (118 * SCREEN_HEIGHT / 502)
+#define MENU_LORE_BOT_Y     (148 * SCREEN_HEIGHT / 502)
+#define LORE_BACK_TOP_Y     (40 * SCREEN_HEIGHT / 502)
+#define LORE_BACK_BOT_Y     (70 * SCREEN_HEIGHT / 502)
+#define LORE_EVOLUTION_TOP_Y  (82 * SCREEN_HEIGHT / 502)
+#define LORE_EVOLUTION_BOT_Y  (108 * SCREEN_HEIGHT / 502)
+#define LORE_AETHERON_TOP_Y   (114 * SCREEN_HEIGHT / 502)
+#define LORE_AETHERON_BOT_Y   (140 * SCREEN_HEIGHT / 502)
+#define LORE_PIXEL_TOP_Y      (146 * SCREEN_HEIGHT / 502)
+#define LORE_PIXEL_BOT_Y      (172 * SCREEN_HEIGHT / 502)
+#define MENU_EQUIP_Y        (60 * SCREEN_HEIGHT / 502)
+#define MENU_NAME_Y         (95 * SCREEN_HEIGHT / 502)
+#define MENU_LORE_ROW_Y     (MENU_LORE_TOP_Y + 8)
+#define MENU_FOOTER_Y       (SCREEN_HEIGHT - 30)
 #define CUTSCENE_TAP_Y     (SCREEN_HEIGHT - 24)
 #define CHAR_W_PLUS_1     6
 
@@ -66,24 +75,28 @@ void layer_manager_render(uint16_t* framebuffer, bool menu_open, uint32_t time_m
             draw_string(framebuffer, SCREEN_WIDTH / 2 - 12, LORE_BACK_TOP_Y + 8, "BACK", MENU_TEXT_COLOR);
             if (cutscene_lore_unlocked(CUTSCENE_ID_EVOLUTION))
                 draw_string(framebuffer, SCREEN_WIDTH / 2 - 27, LORE_EVOLUTION_TOP_Y + 4, "EVOLUTION", MENU_TEXT_COLOR);
+            if (cutscene_lore_unlocked(CUTSCENE_ID_AETHERON_INTRO))
+                draw_string(framebuffer, SCREEN_WIDTH / 2 - 30, LORE_AETHERON_TOP_Y + 4, "AETHERON", MENU_TEXT_COLOR);
+            if (cutscene_lore_unlocked(CUTSCENE_ID_PIXEL_MODE))
+                draw_string(framebuffer, SCREEN_WIDTH / 2 - 36, LORE_PIXEL_TOP_Y + 4, "PIXEL MODE", MENU_TEXT_COLOR);
         } else {
             if (aura_crafted())
                 draw_string(framebuffer, SCREEN_WIDTH / 2 - 27, MENU_CRAFT_TOP_Y, "AURA CALM", MENU_TEXT_COLOR);
             else if (aura_can_craft((unsigned)creature_engine_get_xp()))
                 draw_string(framebuffer, SCREEN_WIDTH / 2 - 42, MENU_CRAFT_TOP_Y, "CRAFT AURA 200", MENU_TEXT_COLOR);
-            draw_string(framebuffer, SCREEN_WIDTH / 2 - 12, 60, "EQUIP", MENU_TEXT_COLOR);
+            draw_string(framebuffer, SCREEN_WIDTH / 2 - 12, MENU_EQUIP_Y, "EQUIP", MENU_TEXT_COLOR);
             uint8_t eq = inventory_get_equipped();
             const accessory_def_t *def = inventory_get_def(eq);
             const char *name = (eq == 0) ? "NONE" : (def ? def->name : "???");
-            draw_string(framebuffer, SCREEN_WIDTH / 2 - (int)(name[0] ? 12 : 0), 95, name, MENU_TEXT_COLOR);
-            draw_string(framebuffer, SCREEN_WIDTH / 2 - 12, MENU_LORE_TOP_Y + 8, "LORE", MENU_TEXT_COLOR);
-            draw_string(framebuffer, 20, SCREEN_HEIGHT - 30, "L R", MENU_TEXT_COLOR);
-            draw_string(framebuffer, SCREEN_WIDTH / 2 - 45, SCREEN_HEIGHT - 30, "BTN CLOSE", MENU_TEXT_COLOR);
+            draw_string(framebuffer, SCREEN_WIDTH / 2 - (int)(name[0] ? 12 : 0), MENU_NAME_Y, name, MENU_TEXT_COLOR);
+            draw_string(framebuffer, SCREEN_WIDTH / 2 - 12, MENU_LORE_ROW_Y, "LORE", MENU_TEXT_COLOR);
+            draw_string(framebuffer, 20, MENU_FOOTER_Y, "L R", MENU_TEXT_COLOR);
+            draw_string(framebuffer, SCREEN_WIDTH / 2 - 45, MENU_FOOTER_Y, "BTN CLOSE", MENU_TEXT_COLOR);
         }
     }
 }
 
-/* Returns: 0=cycled equip, 1=craft, 2=play evolution cutscene, 3=open lore menu, 4=close lore menu. */
+/* Returns: 0=cycled equip, 1=craft, 2=play evolution, 3=open lore, 4=close lore, 5=play Aetheron, 6=play Pixel mode. */
 int layer_manager_menu_handle_touch(int touch_x, int touch_y, int screen_width, int screen_height, bool lore_menu_open)
 {
     (void)touch_x;
@@ -93,6 +106,10 @@ int layer_manager_menu_handle_touch(int touch_x, int touch_y, int screen_width, 
             return 4;
         if (touch_y >= LORE_EVOLUTION_TOP_Y && touch_y <= LORE_EVOLUTION_BOT_Y && cutscene_lore_unlocked(CUTSCENE_ID_EVOLUTION))
             return 2;
+        if (touch_y >= LORE_AETHERON_TOP_Y && touch_y <= LORE_AETHERON_BOT_Y && cutscene_lore_unlocked(CUTSCENE_ID_AETHERON_INTRO))
+            return 5;
+        if (touch_y >= LORE_PIXEL_TOP_Y && touch_y <= LORE_PIXEL_BOT_Y && cutscene_lore_unlocked(CUTSCENE_ID_PIXEL_MODE))
+            return 6;
         return 0;
     }
     if (touch_y >= MENU_LORE_TOP_Y && touch_y <= MENU_LORE_BOT_Y)

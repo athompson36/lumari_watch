@@ -9,8 +9,12 @@
 #define LUMARI_BOARD_WAVESHARE_ESP32_S3_AMOLED_2_06 1
 #endif
 
-/* 1 = Phase 0 demo (circle, touch, button, shake). 0 = Phase 1 Lumari loop (seedling + XP). */
+/* 1 = Phase 0 demo (circle, touch, button, shake). 0 = Lumari game loop. Use Kconfig if available. */
+#if defined(CONFIG_LUMARI_RUN_PHASE0) && CONFIG_LUMARI_RUN_PHASE0
 #define LUMARI_RUN_PHASE0  1
+#else
+#define LUMARI_RUN_PHASE0  0
+#endif
 
 #if LUMARI_BOARD_QEMU
 /* QEMU: same aspect ratio as hardware (410:502 per Waveshare wiki / BOARD_FIRMWARE_CONTEXT.md).
@@ -58,9 +62,9 @@
 #define I2C_MASTER_SCL          14
 #define I2C_MASTER_FREQ_HZ      400000
 
-/* Buttons: BOOT = GPIO0 (low when pressed), PWR = GPIO10 (high when pressed) */
+/* Buttons: BOOT = GPIO0 (low when pressed); PWR = AXP2101 PMIC (poll power_service_poll_pwr_button_short) */
 #define BUTTON_BOOT_PIN         0
-#define BUTTON_PWR_PIN          10
+#define BUTTON_PWR_PIN          10  /* not used: PWR is on PMIC */
 #define BUTTON_PIN              0
 
 /* IMU: QMI8658 on same I2C */

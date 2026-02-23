@@ -2,6 +2,7 @@
 #include "framebuffer_manager.h"
 #include "display_hal.h"
 #include "input_hal.h"
+#include "power_service.h"
 #include "imu_service.h"
 #include "time_service.h"
 #include "sprite_renderer.h"
@@ -58,7 +59,7 @@ void phase0_demo_run(void)
         prev_touch = touch;
 
         /* Button -> cycle brightness on press (edge) */
-        bool btn = input_hal_button_read();
+        bool btn = input_hal_button_read() || power_service_poll_pwr_button_short();
         if (btn && !prev_button) {
             brightness_index = (brightness_index + 1) % s_num_brightness;
             display_hal_set_brightness(s_brightness[brightness_index]);

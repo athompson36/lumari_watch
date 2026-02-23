@@ -18,7 +18,9 @@ void quest_engine_set_state(unsigned quest_index, uint32_t progress);
 /* Add progress for the current quest. When goal is reached, rewards XP and advances. */
 void quest_engine_add_progress(quest_type_t type, uint32_t amount);
 
-/* 0 = none, 1.. = current quest index (for UI). */
+/* 0-based index of current quest (for save/load). */
+unsigned quest_engine_get_current_quest_index(void);
+/* 1-based id for UI (1..N). */
 uint32_t quest_engine_get_current_quest_id(void);
 
 /* Progress toward current goal (0..goal). */

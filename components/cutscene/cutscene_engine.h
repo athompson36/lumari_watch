@@ -4,7 +4,9 @@
 #include <stdbool.h>
 
 #define CUTSCENE_ID_EVOLUTION  0
-#define CUTSCENE_COUNT         1
+#define CUTSCENE_ID_AETHERON_INTRO 1
+#define CUTSCENE_ID_PIXEL_MODE 2
+#define CUTSCENE_COUNT         3
 
 /* Unlock flags: bit 0 = evolution cutscene. Main loads/saves via storage. */
 void cutscene_lore_set_bitfield(uint32_t bitfield);

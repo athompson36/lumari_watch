@@ -21,7 +21,7 @@ Full plan: **[ROADMAP.md](ROADMAP.md)** (Phases 0–7: bring-up → Lumari core 
 
 Other boards can be supported by defining a different board in config and implementing the corresponding HAL paths.
 
-**Hardware & BSP links:** [docs/HARDWARE_REFERENCES.md](docs/HARDWARE_REFERENCES.md) — Waveshare wiki, official BSP, OLEDS3Watch, and community display/touch notes.
+**Hardware & BSP links:** [docs/HARDWARE_REFERENCES.md](docs/HARDWARE_REFERENCES.md) — Waveshare wiki, official BSP, OLEDS3Watch, and community display/touch notes. **Factory firmware and input troubleshooting:** [docs/WAVESHARE_FACTORY_AND_TROUBLESHOOTING.md](docs/WAVESHARE_FACTORY_AND_TROUBLESHOOTING.md).
 
 ## Requirements
 
@@ -59,6 +59,9 @@ idf.py set-target esp32s3   # for Waveshare ESP32-S3-Touch-AMOLED-2.06
 idf.py build
 idf.py -p /dev/tty.usbmodem* flash monitor
 ```
+
+**Blank screen or device seems stuck in bootloader after flash:**  
+The board may still be in download mode. **Release the BOOT button** (do not hold it), then **press Reset (or PWR) once**. It should then boot the app from flash. If the screen stays blank, run `idf.py -p /dev/tty.usbmodem* monitor` in a terminal, press Reset on the device, and check the serial output: bootloader messages mean it didn’t leave download mode; app logs mean the firmware is running and the issue may be display init or wiring.
 
 Dependencies (CO5300 display, QMI8658 IMU) are pulled via the component manager from `idf_component.yml` in `components/display_hal` and `components/services`.
 

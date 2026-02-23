@@ -115,6 +115,9 @@ elif ! grep -q "^CONFIG_LUMARI_BOARD_QEMU=y" sdkconfig 2>/dev/null; then
   NEED_REBUILD=1
 elif ! grep -q "^${_qemu_expected}" sdkconfig 2>/dev/null; then
   NEED_REBUILD=1
+# Force rebuild if Phase 0 is on (red circle) so QEMU runs full Lumari loop
+elif grep -q "^CONFIG_LUMARI_RUN_PHASE0=y" sdkconfig 2>/dev/null; then
+  NEED_REBUILD=1
 fi
 # Build dir incomplete (e.g. missing CMakeFiles/rules.ninja) → rebuild
 if [[ -z "$NEED_REBUILD" && -f build/build.ninja && ! -f build/CMakeFiles/rules.ninja ]]; then
@@ -133,8 +136,17 @@ if [[ -n "$NEED_REBUILD" ]]; then
   SDKCONFIG_DEFAULTS="$_qemu_defaults" idf.py build
 fi
 
-echo "Starting QEMU (graphics window; serial in this terminal)..."
+echo "Starting QEMU (serial in this terminal)..."
+if [[ -z "$_use_custom_qemu" ]]; then
+  echo ""
+  echo "  Prebuilt QEMU: no display window (framebuffer not at 0x21000000)."
+  echo "  For the SDL graphics window, build QEMU from Espressif fork and set LUMARI_QEMU_BUILD_DIR:"
+  echo "    ./scripts/build_qemu_from_fork.sh"
+  echo "    export LUMARI_QEMU_BUILD_DIR=\$HOME/esp/qemu-espressif"
+  echo "    ./run_qemu.sh"
+  echo ""
+fi
 echo "Exit: Ctrl-A then q"
-# Use idf.py qemu --graphics so the virtual framebuffer device is enabled (SDL window).
+# Use idf.py qemu --graphics so the virtual framebuffer device is enabled (SDL window) when using custom QEMU.
 [[ -n "${_qemu_xtensa_bin:-}" ]] && export PATH="${_qemu_xtensa_bin}:$PATH"
 idf.py qemu --graphics

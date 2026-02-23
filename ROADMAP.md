@@ -84,8 +84,8 @@ We build in **5 layers**. Each phase should produce something **usable**.
 **Deliver:**
 
 - [x] First Lumari evolution cutscene (4 slides, tap-to-advance; auto-plays at 100 XP, replayable from LORE)
-- [ ] First Aetheron intro cutscene
-- [ ] Pixel mode cutscene
+- [x] First Aetheron intro cutscene
+- [x] Pixel mode cutscene
 - [x] Replayable in lore menu (LORE → Evolution)
 
 **At this stage:** Feels like a real RPG world.

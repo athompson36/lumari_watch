@@ -15,6 +15,24 @@ static const char *s_evolution_slides[] = {
 };
 static const unsigned s_evolution_slide_count = sizeof(s_evolution_slides) / sizeof(s_evolution_slides[0]);
 
+/* Aetheron intro cutscene: intro to the world beyond. */
+static const char *s_aetheron_intro_slides[] = {
+    "BEYOND THE LIGHT...",
+    "THE AETHERON WAIT.",
+    "ANCIENT BOND.",
+    "YOU ARE NOT ALONE.",
+};
+static const unsigned s_aetheron_intro_slide_count = sizeof(s_aetheron_intro_slides) / sizeof(s_aetheron_intro_slides[0]);
+
+/* Pixel mode cutscene: retro / first alternate skin. */
+static const char *s_pixel_mode_slides[] = {
+    "IN THE GRID...",
+    "OLD MAGIC AWAKES.",
+    "PIXEL HEART.",
+    "ANOTHER FACE.",
+};
+static const unsigned s_pixel_mode_slide_count = sizeof(s_pixel_mode_slides) / sizeof(s_pixel_mode_slides[0]);
+
 #define CUTSCENE_BG_COLOR    0x0000
 #define CUTSCENE_TEXT_COLOR  0xFFFF
 #define CUTSCENE_TAP_Y       (SCREEN_HEIGHT - 24)
@@ -22,6 +40,8 @@ static const unsigned s_evolution_slide_count = sizeof(s_evolution_slides) / siz
 static unsigned cutscene_slide_count(unsigned id)
 {
     if (id == CUTSCENE_ID_EVOLUTION) return s_evolution_slide_count;
+    if (id == CUTSCENE_ID_AETHERON_INTRO) return s_aetheron_intro_slide_count;
+    if (id == CUTSCENE_ID_PIXEL_MODE) return s_pixel_mode_slide_count;
     return 0;
 }
 
@@ -29,6 +49,10 @@ static const char *cutscene_slide_line(unsigned id, unsigned index)
 {
     if (id == CUTSCENE_ID_EVOLUTION && index < s_evolution_slide_count)
         return s_evolution_slides[index];
+    if (id == CUTSCENE_ID_AETHERON_INTRO && index < s_aetheron_intro_slide_count)
+        return s_aetheron_intro_slides[index];
+    if (id == CUTSCENE_ID_PIXEL_MODE && index < s_pixel_mode_slide_count)
+        return s_pixel_mode_slides[index];
     return "";
 }
 

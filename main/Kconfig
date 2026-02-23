@@ -1,5 +1,12 @@
 menu "Lumari"
 
+config LUMARI_RUN_PHASE0
+    bool "Run Phase 0 demo (circle, tap=color) instead of Lumari game loop"
+    default n
+    help
+        When set, the app runs the Phase 0 hardware demo (floating circle, tap to change color).
+        When unset (default), the full Lumari loop runs (creature, quests, menu, etc.).
+
 config LUMARI_BOARD_QEMU
     bool "Target QEMU emulator (reduced resolution, stubbed peripherals)"
     default n
@@ -16,5 +23,12 @@ config LUMARI_QEMU
         virtual device at 0x21000000. Use this with prebuilt QEMU (idf_tools).
         When disabled (but LUMARI_BOARD_QEMU is set), the real QEMU RGB device
         is used and an SDL window shows the framebuffer.
+
+config LUMARI_RUN_UNIT_TESTS
+    bool "Run Unity unit tests at startup (quest_engine, inventory_engine)"
+    default n
+    help
+        When set, app runs unity_run_all_tests() then blocks. Use for CI or
+        idf.py qemu. Requires unity component.
 
 endmenu

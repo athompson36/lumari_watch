@@ -3,5 +3,7 @@
 # Then run: idf.py qemu --graphics monitor
 CONFIG_LUMARI_BOARD_QEMU=y
 CONFIG_LUMARI_QEMU=y
+# Run full Lumari loop in QEMU (not Phase 0 red-circle demo).
+CONFIG_LUMARI_RUN_PHASE0=n
 # QEMU has no PSRAM; use internal RAM only.
 CONFIG_SPIRAM=n

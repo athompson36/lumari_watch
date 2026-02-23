@@ -51,6 +51,6 @@ direct_dependencies:
 - espressif/esp_lcd_co5300
 - espressif/esp_lcd_qemu_rgb
 - waveshare/qmi8658
-manifest_hash: 4258a064dc9de67864fb4d33ef024007b914c9294a0a943f154bbafdcc5de500
+manifest_hash: a75b49f96e60783c222b1b42a584e761cbba7d49bfcdfa7650cc5ab0fe24a25e
 target: esp32s3
 version: 2.0.0

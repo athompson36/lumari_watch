@@ -15,6 +15,16 @@ static const char *KEY_UNLOCKED = "unl";
 static const char *KEY_AURA = "aura";
 static const char *KEY_LORE = "lore";
 
+static bool s_storage_unavailable_logged = false;
+
+static void storage_warn_if_unavailable(void)
+{
+    if (s_handle != 0) return;
+    if (s_storage_unavailable_logged) return;
+    s_storage_unavailable_logged = true;
+    ESP_LOGW(TAG, "NVS unavailable — saves and loads are no-op; progress will not persist");
+}
+
 void storage_init(void)
 {
     esp_err_t err = nvs_flash_init();
@@ -28,14 +38,20 @@ void storage_init(void)
     }
     err = nvs_open(STORAGE_NAMESPACE, NVS_READWRITE, &s_handle);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "nvs_open failed %s", esp_err_to_name(err));
-        s_handle = 0;
+        ESP_LOGE(TAG, "nvs_open failed %s; retrying after erase", esp_err_to_name(err));
+        nvs_flash_erase();
+        if (nvs_flash_init() == ESP_OK)
+            err = nvs_open(STORAGE_NAMESPACE, NVS_READWRITE, &s_handle);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "nvs_open failed %s — persistence disabled", esp_err_to_name(err));
+            s_handle = 0;
+        }
     }
 }
 
 void storage_save_creature(uint32_t xp, uint32_t momentum)
 {
-    if (s_handle == 0) return;
+    if (s_handle == 0) { storage_warn_if_unavailable(); return; }
     nvs_set_u32(s_handle, KEY_XP, xp);
     nvs_set_u32(s_handle, KEY_MOMENTUM, momentum);
     nvs_commit(s_handle);
@@ -51,7 +67,7 @@ bool storage_load_creature(uint32_t *xp, uint32_t *momentum)
 
 void storage_save_quest(unsigned quest_index, uint32_t progress)
 {
-    if (s_handle == 0) return;
+    if (s_handle == 0) { storage_warn_if_unavailable(); return; }
     nvs_set_u32(s_handle, KEY_QUEST_IDX, (uint32_t)quest_index);
     nvs_set_u32(s_handle, KEY_QUEST_PROG, progress);
     nvs_commit(s_handle);
@@ -70,7 +86,7 @@ bool storage_load_quest(unsigned *quest_index, uint32_t *progress)
 
 void storage_save_inventory(uint8_t equipped_id, uint32_t unlocked_bitfield)
 {
-    if (s_handle == 0) return;
+    if (s_handle == 0) { storage_warn_if_unavailable(); return; }
     nvs_set_u8(s_handle, KEY_EQUIP_ID, equipped_id);
     nvs_set_u32(s_handle, KEY_UNLOCKED, unlocked_bitfield);
     nvs_commit(s_handle);
@@ -86,7 +102,7 @@ bool storage_load_inventory(uint8_t *equipped_id, uint32_t *unlocked_bitfield)
 
 void storage_save_aura(bool crafted)
 {
-    if (s_handle == 0) return;
+    if (s_handle == 0) { storage_warn_if_unavailable(); return; }
     nvs_set_u8(s_handle, KEY_AURA, crafted ? 1 : 0);
     nvs_commit(s_handle);
 }
@@ -102,14 +118,22 @@ bool storage_load_aura(bool *crafted)
 
 void storage_save_lore(uint32_t lore_bitfield)
 {
-    if (s_handle == 0) return;
+    if (s_handle == 0) { storage_warn_if_unavailable(); return; }
     nvs_set_u32(s_handle, KEY_LORE, lore_bitfield);
     nvs_commit(s_handle);
 }
 
+/* Bit 0 = evolution, bit 1 = Aetheron intro, bit 2 = Pixel mode. Aetheron + Pixel unlocked by default (first run). */
+#define LORE_DEFAULT_FIRST_RUN  ((1u << 1) | (1u << 2))
+
 bool storage_load_lore(uint32_t *lore_bitfield)
 {
     if (s_handle == 0 || lore_bitfield == NULL) return false;
-    if (nvs_get_u32(s_handle, KEY_LORE, lore_bitfield) != ESP_OK) return false;
-    return true;
+    esp_err_t err = nvs_get_u32(s_handle, KEY_LORE, lore_bitfield);
+    if (err == ESP_OK) return true;
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+        *lore_bitfield = LORE_DEFAULT_FIRST_RUN;
+        return true;
+    }
+    return false;
 }

@@ -22,6 +22,10 @@ static int64_t s_last_shake_ms = 0;
 #define SHAKE_MAGNITUDE_THRESHOLD  18.0f
 #define SHAKE_DEBOUNCE_MS          500
 
+/* One cached read per frame (avoids 3x I2C reads). */
+static float s_cached_ax = 0, s_cached_ay = 0, s_cached_az = 0;
+static bool s_cache_valid = false;
+
 /* Simple step detection: magnitude peak then drop. */
 static bool s_step_was_high = false;
 static int64_t s_step_last_ms = 0;
@@ -56,6 +60,24 @@ void imu_service_init(void)
 #endif
 }
 
+void imu_service_update(void)
+{
+#if LUMARI_BOARD_WAVESHARE_ESP32_S3_AMOLED_2_06
+    s_cache_valid = false;
+    if (!s_imu_ok) return;
+    qmi8658_data_t data;
+    bool ready = false;
+    if (qmi8658_is_data_ready(&s_qmi, &ready) != ESP_OK || !ready) return;
+    if (qmi8658_read_sensor_data(&s_qmi, &data) != ESP_OK) return;
+    s_cached_ax = (float)data.accelX;
+    s_cached_ay = (float)data.accelY;
+    s_cached_az = (float)data.accelZ;
+    s_cache_valid = true;
+#else
+    (void)0;
+#endif
+}
+
 void imu_service_read_accel(int16_t *ax, int16_t *ay, int16_t *az)
 {
     if (ax) *ax = 0;
@@ -63,29 +85,19 @@ void imu_service_read_accel(int16_t *ax, int16_t *ay, int16_t *az)
     if (az) *az = 0;
 
 #if LUMARI_BOARD_WAVESHARE_ESP32_S3_AMOLED_2_06
-    if (!s_imu_ok) return;
-    qmi8658_data_t data;
-    bool ready = false;
-    if (qmi8658_is_data_ready(&s_qmi, &ready) != ESP_OK || !ready) return;
-    if (qmi8658_read_sensor_data(&s_qmi, &data) != ESP_OK) return;
+    if (!s_imu_ok || !s_cache_valid) return;
     /* Report in 0.01 m/s² units (e.g. 981 = 9.81 m/s²) */
-    if (ax) *ax = (int16_t)(data.accelX * 100);
-    if (ay) *ay = (int16_t)(data.accelY * 100);
-    if (az) *az = (int16_t)(data.accelZ * 100);
+    if (ax) *ax = (int16_t)(s_cached_ax * 100);
+    if (ay) *ay = (int16_t)(s_cached_ay * 100);
+    if (az) *az = (int16_t)(s_cached_az * 100);
 #endif
 }
 
 bool imu_service_shake_detected(void)
 {
 #if LUMARI_BOARD_WAVESHARE_ESP32_S3_AMOLED_2_06
-    if (!s_imu_ok) return false;
-    qmi8658_data_t data;
-    bool ready = false;
-    if (qmi8658_is_data_ready(&s_qmi, &ready) != ESP_OK || !ready) return false;
-    if (qmi8658_read_sensor_data(&s_qmi, &data) != ESP_OK) return false;
-
-    float ax = (float)data.accelX, ay = (float)data.accelY, az = (float)data.accelZ;
-    float mag = sqrtf(ax * ax + ay * ay + az * az);
+    if (!s_imu_ok || !s_cache_valid) return false;
+    float mag = sqrtf(s_cached_ax * s_cached_ax + s_cached_ay * s_cached_ay + s_cached_az * s_cached_az);
     int64_t now = esp_timer_get_time() / 1000;
     if (mag >= SHAKE_MAGNITUDE_THRESHOLD && (now - s_last_shake_ms) >= SHAKE_DEBOUNCE_MS) {
         s_last_shake_ms = now;
@@ -100,13 +112,8 @@ bool imu_service_shake_detected(void)
 #if LUMARI_BOARD_WAVESHARE_ESP32_S3_AMOLED_2_06
 static void imu_service_poll_step(void)
 {
-    if (!s_imu_ok) return;
-    qmi8658_data_t data;
-    bool ready = false;
-    if (qmi8658_is_data_ready(&s_qmi, &ready) != ESP_OK || !ready) return;
-    if (qmi8658_read_sensor_data(&s_qmi, &data) != ESP_OK) return;
-    float ax = (float)data.accelX, ay = (float)data.accelY, az = (float)data.accelZ;
-    float mag = sqrtf(ax * ax + ay * ay + az * az);
+    if (!s_imu_ok || !s_cache_valid) return;
+    float mag = sqrtf(s_cached_ax * s_cached_ax + s_cached_ay * s_cached_ay + s_cached_az * s_cached_az);
     int64_t now_ms = esp_timer_get_time() / 1000;
     if (mag >= STEP_MAG_HIGH)
         s_step_was_high = true;

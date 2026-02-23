@@ -6,14 +6,15 @@ This document consolidates hardware and firmware information from the official W
 
 ## 1. Board summary (from Waveshare wiki)
 
-- **SoC:** ESP32-S3R8 (Xtensa LX7 dual-core, 240 MHz), 512KB SRAM, 384KB ROM, **8MB PSRAM**, **32MB external Flash**.
+- **SoC:** ESP32-S3R8 (Xtensa LX7 dual-core, 240 MHz), 512KB SRAM, 384KB ROM, **8MB PSRAM** (octal/OPI; use `CONFIG_SPIRAM_MODE_OCT=y`, not quad), **32MB external Flash**.
 - **Connectivity:** 2.4 GHz Wi-Fi (802.11 b/g/n), Bluetooth 5 (BLE), onboard antenna, **Type-C USB**.
 - **Display:** 2.06″ capacitive touch AMOLED, **410×502**, 16.7M colors. **CO5300** driver over **QSPI**; **FT3168** capacitive touch over **I2C** (10–400 kHz).
 - **Sensors / peripherals:** **QMI8658** 6-axis IMU (accel + gyro); **PCF85063** RTC (battery-backed via AXP2101); **AXP2101** PMIC (power, charging, battery); **ES8311** audio codec (playback); **ES7210** ADC (microphone); **TF card** slot (SDMMC).
 - **Buttons:** **BOOT** and **PWR** (customizable).
 - **Power:** 3.7 V MX1.25 battery header; AXP2101 for charging and multiple rails.
 
-Wiki: [ESP32-S3-Touch-AMOLED-2.06](https://www.waveshare.com/wiki/ESP32-S3-Touch-AMOLED-2.06).
+Wiki: [ESP32-S3-Touch-AMOLED-2.06](https://www.waveshare.com/wiki/ESP32-S3-Touch-AMOLED-2.06).  
+**Factory firmware, docs and input troubleshooting:** [WAVESHARE_FACTORY_AND_TROUBLESHOOTING.md](WAVESHARE_FACTORY_AND_TROUBLESHOOTING.md).
 
 ---
 
@@ -183,6 +184,21 @@ The emulator is configured to match the **Waveshare ESP32-S3-Touch-AMOLED-2.06**
 | **IMU / RTC** | QMI8658, PCF85063 on I2C 14/15 | Stubbed. |
 
 **Run:** `./run_qemu.sh` (sources IDF, ensures QEMU build with `sdkconfig.defaults` + `sdkconfig.defaults.qemu`, then `idf.py qemu --graphics`). Exit: Ctrl-A then q.
+
+**QEMU keyboard / button mapping**
+
+The menu footer shows **L R** and **BTN CLOSE** — these are the hardware control labels on the real watch:
+
+| Label | Hardware | In Lumari | In QEMU |
+|-------|----------|-----------|---------|
+| **L** | Left side button | Not used yet | — |
+| **R** | Right side button | Not used yet | — |
+| **BTN** | BOOT button (GPIO0, active low) | Short press: toggle menu. Long press (≈800 ms): open menu. | Firmware reads GPIO0; standard ESP-IDF QEMU does **not** expose a keyboard key for GPIO0, so the button cannot be simulated from the host unless you add custom handling (e.g. UART or QEMU GPIO hook). |
+| **CLOSE** | Same as BTN when menu is open | Short press closes menu | Same as BTN. |
+
+**Touch:** On hardware, tap the screen to pick EQUIP, LORE, CRAFT AURA, etc. In QEMU touch is **stubbed** (no touch input), so menu items cannot be selected unless the project adds mouse→touch or key→action mapping for the emulator.
+
+**Exit QEMU:** Focus the terminal where QEMU is running, press **Ctrl-A**, then type **q** and Enter.
 
 **No GUI with prebuilt QEMU:** The Espressif prebuilt QEMU (from `idf_tools.py install qemu-xtensa`) does **not** map the virtual framebuffer device at `0x21000000`, so no SDL window appears (stub mode, serial only).
 

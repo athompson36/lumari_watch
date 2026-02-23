@@ -3,11 +3,10 @@
 
 static bool s_crafted = false;
 
-/* Soft pastel glow color (RGB565). */
+/* Soft pastel glow color (RGB565). Duplicate of sprite_renderer draw_ring to avoid aura->engine cycle. */
 #define AURA_COLOR  0x4A49
 
-static void draw_ring_local(
-    uint16_t *fb, int cx, int cy, int r_inner, int r_outer, uint16_t color)
+static void draw_ring_local(uint16_t *fb, int cx, int cy, int r_inner, int r_outer, uint16_t color)
 {
     if (r_inner < 0) r_inner = 0;
     if (r_outer <= r_inner) return;

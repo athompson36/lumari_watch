@@ -53,6 +53,11 @@ void quest_engine_add_progress(quest_type_t type, uint32_t amount)
     }
 }
 
+unsigned quest_engine_get_current_quest_index(void)
+{
+    return s_current;
+}
+
 uint32_t quest_engine_get_current_quest_id(void)
 {
     return s_current + 1;

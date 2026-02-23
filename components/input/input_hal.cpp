@@ -65,14 +65,23 @@ void input_hal_init(void)
     };
     gpio_config(&btn0);
 #if LUMARI_BOARD_WAVESHARE_ESP32_S3_AMOLED_2_06
-    gpio_config_t btn1 = {
-        .pin_bit_mask = (1ULL << BUTTON_PWR_PIN),
-        .mode         = GPIO_MODE_INPUT,
-        .pull_up_en   = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_ENABLE,
-        .intr_type    = GPIO_INTR_DISABLE,
-    };
-    gpio_config(&btn1);
+    /* PWR button is on AXP2101 PMIC, polled via power_service_poll_pwr_button_short(); no GPIO10. */
+
+    /* Touch RST: assert reset before I2C so FT3168 is in known state when we first talk to it */
+    if (TOUCH_PIN_RST >= 0) {
+        gpio_config_t rst = {
+            .pin_bit_mask = (1ULL << TOUCH_PIN_RST),
+            .mode         = GPIO_MODE_OUTPUT,
+            .pull_up_en   = GPIO_PULLUP_DISABLE,
+            .pull_down_en = GPIO_PULLDOWN_DISABLE,
+            .intr_type    = GPIO_INTR_DISABLE,
+        };
+        gpio_config(&rst);
+        gpio_set_level((gpio_num_t)TOUCH_PIN_RST, 0);
+        vTaskDelay(pdMS_TO_TICKS(10));
+        gpio_set_level((gpio_num_t)TOUCH_PIN_RST, 1);
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
 
     /* Touch: I2C bus + FT3168 at 0x38 */
     i2c_master_bus_config_t bus_cfg = {
@@ -90,33 +99,31 @@ void input_hal_init(void)
         ESP_LOGW(TAG, "I2C bus init failed (%s)", esp_err_to_name(err));
         return;
     }
+    /* FT3168: 400 kHz to match BSP (esp_lcd_touch_ft5x06); shared bus with IMU/RTC/power. */
+    const uint32_t touch_freq_hz = 400000;
     i2c_device_config_t dev_cfg = {
         .dev_addr_length = I2C_ADDR_BIT_LEN_7,
         .device_address  = TOUCH_I2C_ADDR,
-        .scl_speed_hz    = I2C_MASTER_FREQ_HZ,
+        .scl_speed_hz    = touch_freq_hz,
         .scl_wait_us     = 0,
         .flags           = {},
     };
     err = i2c_master_bus_add_device(s_i2c_bus, &dev_cfg, &s_touch_dev);
     s_touch_ok = (err == ESP_OK);
-    if (s_touch_ok && TOUCH_PIN_RST >= 0) {
-        gpio_config_t rst = {
-            .pin_bit_mask = (1ULL << TOUCH_PIN_RST),
-            .mode         = GPIO_MODE_OUTPUT,
-            .pull_up_en   = GPIO_PULLUP_DISABLE,
-            .pull_down_en = GPIO_PULLDOWN_DISABLE,
-            .intr_type    = GPIO_INTR_DISABLE,
-        };
-        gpio_config(&rst);
-        gpio_set_level((gpio_num_t)TOUCH_PIN_RST, 0);
-        vTaskDelay(pdMS_TO_TICKS(10));
-        gpio_set_level((gpio_num_t)TOUCH_PIN_RST, 1);
-        vTaskDelay(pdMS_TO_TICKS(50));
-    }
-    if (!s_touch_ok)
+    if (!s_touch_ok) {
         ESP_LOGW(TAG, "Touch I2C add failed (%s); touch disabled", esp_err_to_name(err));
-    else
-        ESP_LOGI(TAG, "Input init OK (BOOT=%d, PWR=%d, touch I2C 0x%02X)", BUTTON_BOOT_PIN, BUTTON_PWR_PIN, (int)TOUCH_I2C_ADDR);
+    } else {
+        /* Probe: read one byte from reg 0x02 to verify FT3168 responds */
+        uint8_t reg = FT3168_REG_POINTS;
+        uint8_t probe = 0;
+        esp_err_t probe_err = i2c_master_transmit_receive(s_touch_dev, &reg, 1, &probe, 1, 100);
+        if (probe_err != ESP_OK)
+            ESP_LOGW(TAG, "Touch I2C probe failed (%s)", esp_err_to_name(probe_err));
+        ESP_LOGI(TAG, "Input init OK (BOOT GPIO%d, PWR=AXP2101, touch 0x%02X probe=%s)",
+                 (int)BUTTON_BOOT_PIN, (int)TOUCH_I2C_ADDR, probe_err == ESP_OK ? "OK" : "fail");
+    }
+    /* Log button level at init for sanity (BOOT = 0 when pressed) */
+    ESP_LOGI(TAG, "Button level at init: BOOT=%d", gpio_get_level((gpio_num_t)BUTTON_BOOT_PIN));
 #else
     spi_device_interface_config_t dev_cfg = {};
     dev_cfg.clock_speed_hz = 2 * 1000 * 1000;
@@ -152,7 +159,7 @@ bool input_hal_touch_read(int *x, int *y)
     }
     uint8_t buf[6];
     uint8_t reg_points = FT3168_REG_POINTS;
-    esp_err_t err = i2c_master_transmit_receive(s_touch_dev, &reg_points, 1, buf, sizeof(buf), 50);
+    esp_err_t err = i2c_master_transmit_receive(s_touch_dev, &reg_points, 1, buf, sizeof(buf), 100);
     if (err != ESP_OK) {
         *x = 0; *y = 0;
         return false;
@@ -162,11 +169,11 @@ bool input_hal_touch_read(int *x, int *y)
         *x = 0; *y = 0;
         return false;
     }
-    /* P1: X = (XH&0x0F)<<8 | XL, Y = (YH&0x0F)<<8 | YL */
+    /* P1: X = (XH&0x0F)<<8 | XL, Y = (YH&0x0F)<<8 | YL. FT3168 reports panel coords (0..panel_w-1, 0..panel_h-1), not 0..4095. */
     int raw_x = ((buf[1] & 0x0F) << 8) | buf[2];
     int raw_y = ((buf[3] & 0x0F) << 8) | buf[4];
-    *x = raw_x * (SCREEN_WIDTH - 1) / 4095;
-    *y = raw_y * (SCREEN_HEIGHT - 1) / 4095;
+    *x = raw_x;
+    *y = raw_y;
     if (*x < 0) *x = 0;
     if (*x >= SCREEN_WIDTH) *x = SCREEN_WIDTH - 1;
     if (*y < 0) *y = 0;
@@ -193,6 +200,10 @@ bool input_hal_touch_read(int *x, int *y)
 
 bool input_hal_button_read(void)
 {
-    /* BOOT = GPIO0, active low; treat as "button pressed" when low */
+#if LUMARI_BOARD_WAVESHARE_ESP32_S3_AMOLED_2_06
+    /* BOOT = GPIO0 active low (pressed => low). PWR is on AXP2101; app must OR power_service_poll_pwr_button_short(). */
+    return (gpio_get_level((gpio_num_t)BUTTON_BOOT_PIN) == 0);
+#else
     return gpio_get_level((gpio_num_t)BUTTON_PIN) == 0;
+#endif
 }
