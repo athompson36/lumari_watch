@@ -29,6 +29,45 @@ void draw_rect(
     uint16_t color
 );
 
+/* Panel: filled rect with 1px border (for content areas). */
+void draw_panel(
+    uint16_t* framebuffer,
+    int x, int y, int w, int h,
+    uint16_t bg_color,
+    uint16_t border_color
+);
+
+/* 1px outline of rectangle (border only). */
+void draw_rect_outline(
+    uint16_t* framebuffer,
+    int x, int y, int w, int h,
+    uint16_t color
+);
+
+/* Button: filled rect + outline + centered label. Label must fit in w. */
+void draw_button(
+    uint16_t* framebuffer,
+    int x, int y, int w, int h,
+    const char* label,
+    uint16_t bg_color,
+    uint16_t text_color
+);
+
+/* Bottom nav bar: two equal buttons that fit screen. Short labels (e.g. "NEXT", "HOME").
+ * If time_ms is non-zero, outline pulses for subtle animation. */
+void draw_bottom_nav(
+    uint16_t* framebuffer,
+    const char* left_label,
+    const char* right_label,
+    uint16_t bg_color,
+    uint16_t text_color,
+    uint16_t outline_color,
+    uint32_t time_ms
+);
+
+/* Hit test: 0 = left button, 1 = right button, -1 = neither. */
+int bottom_nav_hit_test(int x, int y);
+
 /* Draw a string (5x7 uppercase + space). */
 void draw_string(
     uint16_t* framebuffer,
@@ -70,3 +109,6 @@ void draw_short_date(
     int x, int y, uint8_t month, uint8_t day,
     uint16_t color
 );
+
+/* Return pixel width of string (for centering). */
+int draw_string_width(const char* str);

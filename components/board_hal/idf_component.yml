@@ -1,0 +1,4 @@
+description: "Display and board HAL for Lumari"
+dependencies:
+  espressif/esp_lcd_co5300: "*"
+  espressif/esp_lcd_qemu_rgb: "*"

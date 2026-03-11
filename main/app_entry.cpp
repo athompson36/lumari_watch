@@ -9,6 +9,9 @@
 #include "storage_engine.h"
 #include "layer_manager.h"
 #include "ui_manager.h"
+#include "ui_state.h"
+#include "sprite_renderer.h"
+#include "screens/ui_system_screen.h"
 #include "input_hal.h"
 #include "driver/gpio.h"
 #include "time_service.h"
@@ -23,6 +26,8 @@
 #include "freertos/semphr.h"
 
 #define LONG_PRESS_MS       800
+/* Max press duration to count as a tap (release within this = single tap; hold longer = ignore). */
+#define TAP_MAX_MS          420
 #define WRIST_DOWN_G         (-7.0f)
 #define WRIST_UP_G           (2.0f)
 #define WRIST_DEBOUNCE_MS   800
@@ -52,6 +57,9 @@ static void sensor_task(void*)
     uint32_t wrist_up_ms = 0;
     bool menu_open = false;
     bool lore_menu_open = false;
+    bool touch_prev = false;
+    uint32_t touch_down_ms = 0;
+    int touch_last_x = 0, touch_last_y = 0;
 #if LUMARI_INPUT_DEBUG
     uint32_t last_input_log_ms = 0;
     int last_tx = 0, last_ty = 0;
@@ -64,9 +72,11 @@ static void sensor_task(void*)
         if (pwr)
             ui_manager_go_home();
         bool btn = input_hal_button_read() || pwr;
+        int tx = 0, ty = 0;
+        bool touch = input_hal_touch_read(&tx, &ty);
 
-        /* Wake display on any button press when screen is off (so black screen isn't stuck). */
-        if (display_off && btn) {
+        /* Wake display on button or touch when screen is off. */
+        if (display_off && (btn || touch)) {
             display_hal_wake();
             display_off = false;
             creature_engine_set_mood(CREATURE_MOOD_IDLE);
@@ -108,35 +118,65 @@ static void sensor_task(void*)
             }
         }
 
-        int tx = 0, ty = 0;
-        if (input_hal_touch_read(&tx, &ty)) {
-            if (cutscene_is_active()) {
-                cutscene_advance();
-            } else if (menu_open) {
-                int action = layer_manager_menu_handle_touch(tx, ty, SCREEN_WIDTH, SCREEN_HEIGHT, lore_menu_open);
-                if (action == LAYER_ACTION_CRAFT && creature_engine_spend_xp(AURA_CRAFT_COST_XP)) {
-                    aura_do_craft();
-                    storage_save_creature((uint32_t)creature_engine_get_xp(), (uint32_t)creature_engine_get_momentum());
-                    storage_save_aura(true);
-                } else if (action == LAYER_ACTION_PLAY_CUTSCENE) {
-                    cutscene_start(CUTSCENE_ID_EVOLUTION);
-                    menu_open = false;
-                    lore_menu_open = false;
-                } else if (action == LAYER_ACTION_PLAY_AETHERON) {
-                    cutscene_start(CUTSCENE_ID_AETHERON_INTRO);
-                    menu_open = false;
-                    lore_menu_open = false;
-                } else if (action == LAYER_ACTION_PLAY_PIXEL) {
-                    cutscene_start(CUTSCENE_ID_PIXEL_MODE);
-                    menu_open = false;
-                    lore_menu_open = false;
-                } else if (action == LAYER_ACTION_OPEN_LORE) {
-                    lore_menu_open = true;
-                } else if (action == LAYER_ACTION_CLOSE_LORE) {
-                    lore_menu_open = false;
+        if (touch) {
+            touch_last_x = tx;
+            touch_last_y = ty;
+        }
+        /* Fire tap only on release, and only if press was short (single tap; hold does nothing). */
+        if (touch_prev && !touch) {
+            uint32_t held = now_ms - touch_down_ms;
+            if (held <= TAP_MAX_MS) {
+                tx = touch_last_x;
+                ty = touch_last_y;
+                if (cutscene_is_active()) {
+                    cutscene_advance();
+                } else if (menu_open) {
+                    int action = layer_manager_menu_handle_touch(tx, ty, SCREEN_WIDTH, SCREEN_HEIGHT, lore_menu_open);
+                    if (action == LAYER_ACTION_CRAFT && creature_engine_spend_xp(AURA_CRAFT_COST_XP)) {
+                        aura_do_craft();
+                        storage_save_creature((uint32_t)creature_engine_get_xp(), (uint32_t)creature_engine_get_momentum());
+                        storage_save_aura(true);
+                    } else if (action == LAYER_ACTION_PLAY_CUTSCENE) {
+                        cutscene_start(CUTSCENE_ID_EVOLUTION);
+                        menu_open = false;
+                        lore_menu_open = false;
+                    } else if (action == LAYER_ACTION_PLAY_AETHERON) {
+                        cutscene_start(CUTSCENE_ID_AETHERON_INTRO);
+                        menu_open = false;
+                        lore_menu_open = false;
+                    } else if (action == LAYER_ACTION_PLAY_PIXEL) {
+                        cutscene_start(CUTSCENE_ID_PIXEL_MODE);
+                        menu_open = false;
+                        lore_menu_open = false;
+                    } else if (action == LAYER_ACTION_OPEN_LORE) {
+                        lore_menu_open = true;
+                    } else if (action == LAYER_ACTION_CLOSE_LORE) {
+                        lore_menu_open = false;
+                    }
+                } else {
+                    int nav = bottom_nav_hit_test(tx, ty);
+                    if (nav == 0) {
+                        if (ui_manager_current_screen() == (int)UI_SCREEN_SYSTEM && ui_manager_is_in_settings_subpage())
+                            ui_manager_settings_back();
+                        else
+                            ui_manager_next_screen();
+                    } else if (nav == 1) {
+                        ui_manager_go_home();
+                    } else if (ui_manager_current_screen() == (int)UI_SCREEN_SYSTEM) {
+                        int act = ui_system_handle_touch(tx, ty);
+                        if (act == SYS_ACT_OPEN_TIME)   ui_manager_settings_enter(SETTINGS_PAGE_TIME_DATE);
+                        else if (act == SYS_ACT_OPEN_DISPLAY) ui_manager_settings_enter(SETTINGS_PAGE_DISPLAY);
+                        else if (act == SYS_ACT_OPEN_WIFI)    ui_manager_settings_enter(SETTINGS_PAGE_WIFI);
+                        else if (act == SYS_ACT_OPEN_BT)     ui_manager_settings_enter(SETTINGS_PAGE_BLUETOOTH);
+                        else if (act == SYS_ACT_BACK)       ui_manager_settings_back();
+                        else if (act != SYS_ACT_NONE)       ui_system_apply_action(act);
+                    }
                 }
             }
         }
+        if (touch && !touch_prev)
+            touch_down_ms = now_ms;
+        touch_prev = touch;
 
         if (!cutscene_is_active() && creature_engine_get_xp() >= 100 && !cutscene_lore_unlocked(CUTSCENE_ID_EVOLUTION)) {
             cutscene_lore_set_unlocked(CUTSCENE_ID_EVOLUTION);
@@ -261,6 +301,11 @@ extern "C" void app_entry_start(void)
             inventory_check_unlocks((uint32_t)creature_engine_get_xp());
             inventory_set_equipped(equip);
         }
+        uint8_t bright = 80, t24 = 0, w = 0, bt = 0;
+        if (storage_load_settings(&bright, &t24, &w, &bt)) {
+            if (bright < 30) bright = 30; /* never start black */
+            display_hal_set_brightness(bright);
+        }
         bool aura_crafted_val = false;
         if (storage_load_aura(&aura_crafted_val)) {
             aura_set_crafted(aura_crafted_val);
@@ -283,6 +328,9 @@ extern "C" void app_entry_start(void)
         bool display_off = false;
         uint32_t wrist_down_ms = 0;
         uint32_t wrist_up_ms = 0;
+        bool touch_prev = false;
+        uint32_t touch_down_ms = 0;
+        int touch_last_x = 0, touch_last_y = 0;
 #if LUMARI_INPUT_DEBUG
         uint32_t last_input_log_ms = 0;
         int last_tx = 0, last_ty = 0;
@@ -293,8 +341,10 @@ extern "C" void app_entry_start(void)
             bool pwr = power_service_poll_pwr_button_short();
             if (pwr) ui_manager_go_home();
             bool btn = input_hal_button_read() || pwr;
+            int tx = 0, ty = 0;
+            bool touch = input_hal_touch_read(&tx, &ty);
 
-            if (display_off && btn) {
+            if (display_off && (btn || touch)) {
                 display_hal_wake();
                 display_off = false;
                 creature_engine_set_mood(CREATURE_MOOD_IDLE);
@@ -331,31 +381,55 @@ extern "C" void app_entry_start(void)
                         }
                     }
                 }
-                int tx = 0, ty = 0;
-                if (input_hal_touch_read(&tx, &ty)) {
-                    if (cutscene_is_active()) cutscene_advance();
-                    else if (menu_open) {
-                        int action = layer_manager_menu_handle_touch(tx, ty, SCREEN_WIDTH, SCREEN_HEIGHT, lore_menu_open);
-                        if (action == LAYER_ACTION_CRAFT && creature_engine_spend_xp(AURA_CRAFT_COST_XP)) {
-                            aura_do_craft();
-                            storage_save_creature((uint32_t)creature_engine_get_xp(), (uint32_t)creature_engine_get_momentum());
-                            storage_save_aura(true);
-                        } else if (action == LAYER_ACTION_PLAY_CUTSCENE) {
-                            cutscene_start(CUTSCENE_ID_EVOLUTION);
-                            menu_open = false;
-                            lore_menu_open = false;
-                        } else if (action == LAYER_ACTION_PLAY_AETHERON) {
-                            cutscene_start(CUTSCENE_ID_AETHERON_INTRO);
-                            menu_open = false;
-                            lore_menu_open = false;
-                        } else if (action == LAYER_ACTION_PLAY_PIXEL) {
-                            cutscene_start(CUTSCENE_ID_PIXEL_MODE);
-                            menu_open = false;
-                            lore_menu_open = false;
-                        } else if (action == LAYER_ACTION_OPEN_LORE) lore_menu_open = true;
-                        else if (action == LAYER_ACTION_CLOSE_LORE) lore_menu_open = false;
+                if (touch) touch_last_x = tx, touch_last_y = ty;
+                if (touch_prev && !touch) {
+                    uint32_t held = now_ms - touch_down_ms;
+                    if (held <= TAP_MAX_MS) {
+                        tx = touch_last_x;
+                        ty = touch_last_y;
+                        if (cutscene_is_active()) cutscene_advance();
+                        else if (menu_open) {
+                            int action = layer_manager_menu_handle_touch(tx, ty, SCREEN_WIDTH, SCREEN_HEIGHT, lore_menu_open);
+                            if (action == LAYER_ACTION_CRAFT && creature_engine_spend_xp(AURA_CRAFT_COST_XP)) {
+                                aura_do_craft();
+                                storage_save_creature((uint32_t)creature_engine_get_xp(), (uint32_t)creature_engine_get_momentum());
+                                storage_save_aura(true);
+                            } else if (action == LAYER_ACTION_PLAY_CUTSCENE) {
+                                cutscene_start(CUTSCENE_ID_EVOLUTION);
+                                menu_open = false;
+                                lore_menu_open = false;
+                            } else if (action == LAYER_ACTION_PLAY_AETHERON) {
+                                cutscene_start(CUTSCENE_ID_AETHERON_INTRO);
+                                menu_open = false;
+                                lore_menu_open = false;
+                            } else if (action == LAYER_ACTION_PLAY_PIXEL) {
+                                cutscene_start(CUTSCENE_ID_PIXEL_MODE);
+                                menu_open = false;
+                                lore_menu_open = false;
+                            } else if (action == LAYER_ACTION_OPEN_LORE) lore_menu_open = true;
+                            else if (action == LAYER_ACTION_CLOSE_LORE) lore_menu_open = false;
+                        } else {
+                            int nav = bottom_nav_hit_test(tx, ty);
+                            if (nav == 0) {
+                                if (ui_manager_current_screen() == (int)UI_SCREEN_SYSTEM && ui_manager_is_in_settings_subpage())
+                                    ui_manager_settings_back();
+                                else
+                                    ui_manager_next_screen();
+                            } else if (nav == 1) ui_manager_go_home();
+                            else if (ui_manager_current_screen() == (int)UI_SCREEN_SYSTEM) {
+                                int act = ui_system_handle_touch(tx, ty);
+                                if (act == SYS_ACT_OPEN_TIME)   ui_manager_settings_enter(SETTINGS_PAGE_TIME_DATE);
+                                else if (act == SYS_ACT_OPEN_DISPLAY) ui_manager_settings_enter(SETTINGS_PAGE_DISPLAY);
+                                else if (act == SYS_ACT_OPEN_WIFI)    ui_manager_settings_enter(SETTINGS_PAGE_WIFI);
+                                else if (act == SYS_ACT_OPEN_BT)     ui_manager_settings_enter(SETTINGS_PAGE_BLUETOOTH);
+                                else if (act == SYS_ACT_BACK)       ui_manager_settings_back();
+                                else if (act != SYS_ACT_NONE)       ui_system_apply_action(act);
+                            }
+                        }
                     }
                 }
+                if (touch && !touch_prev) touch_down_ms = now_ms;
+                touch_prev = touch;
                 if (!cutscene_is_active() && creature_engine_get_xp() >= 100 && !cutscene_lore_unlocked(CUTSCENE_ID_EVOLUTION)) {
                     cutscene_lore_set_unlocked(CUTSCENE_ID_EVOLUTION);
                     storage_save_lore(cutscene_lore_get_bitfield());

@@ -133,6 +133,98 @@ void draw_rect(
     }
 }
 
+void draw_panel(
+    uint16_t* framebuffer,
+    int x, int y, int w, int h,
+    uint16_t bg_color,
+    uint16_t border_color
+)
+{
+    draw_rect(framebuffer, x, y, w, h, bg_color);
+    draw_rect_outline(framebuffer, x, y, w, h, border_color);
+}
+
+void draw_rect_outline(
+    uint16_t* framebuffer,
+    int x, int y, int w, int h,
+    uint16_t color
+)
+{
+    if (w <= 0 || h <= 0) return;
+    draw_rect(framebuffer, x, y, w, 1, color);
+    if (h > 1) draw_rect(framebuffer, x, y + h - 1, w, 1, color);
+    if (h > 2) {
+        draw_rect(framebuffer, x, y + 1, 1, h - 2, color);
+        if (w > 1) draw_rect(framebuffer, x + w - 1, y + 1, 1, h - 2, color);
+    }
+}
+
+int draw_string_width(const char* str)
+{
+    int n = 0;
+    while (str && str[n]) n++;
+    return n * FONT_STRIDE;
+}
+
+void draw_button(
+    uint16_t* framebuffer,
+    int x, int y, int w, int h,
+    const char* label,
+    uint16_t bg_color,
+    uint16_t text_color
+)
+{
+    draw_rect(framebuffer, x, y, w, h, bg_color);
+    draw_rect_outline(framebuffer, x, y, w, h, text_color);
+    int label_w = draw_string_width(label);
+    int tx = x + (w - label_w) / 2;
+    int ty = y + (h - FONT_CHAR_H) / 2;
+    if (tx < x) tx = x;
+    if (ty < y) ty = y;
+    draw_string(framebuffer, tx, ty, label, text_color);
+}
+
+void draw_bottom_nav(
+    uint16_t* framebuffer,
+    const char* left_label,
+    const char* right_label,
+    uint16_t bg_color,
+    uint16_t text_color,
+    uint16_t outline_color,
+    uint32_t time_ms
+)
+{
+    int bar_y = SCREEN_HEIGHT - BOTTOM_BAR_H;
+    int btn_w = (SCREEN_WIDTH - 2 * BOTTOM_BAR_MARGIN - BOTTOM_BAR_GAP) / 2;
+    if (btn_w < 20) btn_w = (SCREEN_WIDTH - BOTTOM_BAR_GAP) / 2;
+    int left_x = BOTTOM_BAR_MARGIN;
+    int right_x = BOTTOM_BAR_MARGIN + btn_w + BOTTOM_BAR_GAP;
+    /* Subtle pulse: alternate outline every 600ms */
+    uint16_t out = outline_color;
+    if (time_ms != 0 && (time_ms / 600) % 2 != 0)
+        out = text_color; /* brighter when pulsed */
+    draw_rect(framebuffer, left_x, bar_y, btn_w, BOTTOM_BAR_H, bg_color);
+    draw_rect_outline(framebuffer, left_x, bar_y, btn_w, BOTTOM_BAR_H, out);
+    int lw = draw_string_width(left_label ? left_label : "NEXT");
+    draw_string(framebuffer, left_x + (btn_w - lw) / 2, bar_y + (BOTTOM_BAR_H - FONT_CHAR_H) / 2, left_label ? left_label : "NEXT", text_color);
+    draw_rect(framebuffer, right_x, bar_y, btn_w, BOTTOM_BAR_H, bg_color);
+    draw_rect_outline(framebuffer, right_x, bar_y, btn_w, BOTTOM_BAR_H, out);
+    int rw = draw_string_width(right_label ? right_label : "HOME");
+    draw_string(framebuffer, right_x + (btn_w - rw) / 2, bar_y + (BOTTOM_BAR_H - FONT_CHAR_H) / 2, right_label ? right_label : "HOME", text_color);
+}
+
+int bottom_nav_hit_test(int x, int y)
+{
+    if (y < SCREEN_HEIGHT - BOTTOM_BAR_H || y >= SCREEN_HEIGHT) return -1;
+    int btn_w = (SCREEN_WIDTH - 2 * BOTTOM_BAR_MARGIN - BOTTOM_BAR_GAP) / 2;
+    if (btn_w < 20) btn_w = (SCREEN_WIDTH - BOTTOM_BAR_GAP) / 2;
+    int left_x = BOTTOM_BAR_MARGIN;
+    int right_x = BOTTOM_BAR_MARGIN + btn_w + BOTTOM_BAR_GAP;
+    if (x >= left_x && x < left_x + btn_w) return 0;
+    if (x >= right_x && x < right_x + btn_w) return 1;
+    return -1;
+}
+
 /* 5x7 font: index 0 = space, 1–26 = A–Z. */
 static const uint8_t s_alpha5x7[27][7] = {
     { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },

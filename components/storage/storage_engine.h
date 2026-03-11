@@ -27,3 +27,7 @@ bool storage_load_aura(bool *crafted);
 /* Lore: cutscene unlock bitfield (bit 0 = evolution, etc.) */
 void storage_save_lore(uint32_t lore_bitfield);
 bool storage_load_lore(uint32_t *lore_bitfield);
+
+/* Settings: brightness 0–100, time_24h 0/1, wifi_on 0/1, bt_on 0/1 */
+void storage_save_settings(uint8_t brightness, uint8_t time_24h, uint8_t wifi_on, uint8_t bt_on);
+bool storage_load_settings(uint8_t *brightness, uint8_t *time_24h, uint8_t *wifi_on, uint8_t *bt_on);

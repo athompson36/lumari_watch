@@ -14,6 +14,10 @@ static const char *KEY_EQUIP_ID = "eq";
 static const char *KEY_UNLOCKED = "unl";
 static const char *KEY_AURA = "aura";
 static const char *KEY_LORE = "lore";
+static const char *KEY_BRIGHT = "br";
+static const char *KEY_24H = "24h";
+static const char *KEY_WIFI = "wifi";
+static const char *KEY_BT = "bt";
 
 static bool s_storage_unavailable_logged = false;
 
@@ -136,4 +140,30 @@ bool storage_load_lore(uint32_t *lore_bitfield)
         return true;
     }
     return false;
+}
+
+void storage_save_settings(uint8_t brightness, uint8_t time_24h, uint8_t wifi_on, uint8_t bt_on)
+{
+    if (s_handle == 0) { storage_warn_if_unavailable(); return; }
+    nvs_set_u8(s_handle, KEY_BRIGHT, brightness);
+    nvs_set_u8(s_handle, KEY_24H, time_24h);
+    nvs_set_u8(s_handle, KEY_WIFI, wifi_on);
+    nvs_set_u8(s_handle, KEY_BT, bt_on);
+    nvs_commit(s_handle);
+}
+
+bool storage_load_settings(uint8_t *brightness, uint8_t *time_24h, uint8_t *wifi_on, uint8_t *bt_on)
+{
+    if (s_handle == 0) return false;
+    uint8_t b = 80, t = 0, w = 0, bt = 0;
+    if (nvs_get_u8(s_handle, KEY_BRIGHT, &b) != ESP_OK) b = 80;
+    if (b < 30) b = 30; /* never load a black-screen value */
+    if (nvs_get_u8(s_handle, KEY_24H, &t) != ESP_OK) t = 0;
+    if (nvs_get_u8(s_handle, KEY_WIFI, &w) != ESP_OK) w = 0;
+    if (nvs_get_u8(s_handle, KEY_BT, &bt) != ESP_OK) bt = 0;
+    if (brightness) *brightness = b;
+    if (time_24h) *time_24h = t;
+    if (wifi_on) *wifi_on = w;
+    if (bt_on) *bt_on = bt;
+    return true;
 }

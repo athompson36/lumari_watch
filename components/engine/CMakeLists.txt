@@ -12,5 +12,5 @@ idf_component_register(
         "screens/ui_lore_screen.cpp"
         "screens/ui_system_screen.cpp"
     INCLUDE_DIRS "." "screens"
-    REQUIRES display_hal config creature quest inventory aura cutscene services freertos
+    REQUIRES display_hal config creature quest inventory aura cutscene services freertos storage
 )

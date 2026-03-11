@@ -24,21 +24,35 @@
 #define SCREEN_HEIGHT 240
 #define UI_SCALE    1
 #define FONT_SCALE  1
+#define ROUNDED_EDGE_INSET_H  0
+#define ROUNDED_EDGE_INSET_TOP 0
 #else
-/* Hardware: Waveshare ESP32-S3-Touch-AMOLED-2.06 — 2.06" AMOLED 410×502, 16.7M colors, CO5300 QSPI. */
+/* Hardware: Waveshare ESP32-S3-Touch-AMOLED-2.06 — 2.06" AMOLED 410×502, 16.7M colors, CO5300 QSPI.
+ * Rounded edges: keep content inset so text and buttons don't overlap or clip. */
 #define SCREEN_WIDTH  410
 #define SCREEN_HEIGHT 502
 #define UI_SCALE    2
 #define FONT_SCALE  4
+#define ROUNDED_EDGE_INSET_H  28
+#define ROUNDED_EDGE_INSET_TOP 24
 #endif
 /* Font: 5x7 base scaled by FONT_SCALE (double previous = 4 on HW). Layout uses UI_SCALE. */
 #define FONT_CHAR_W    (5 * FONT_SCALE)
 #define FONT_CHAR_H    (7 * FONT_SCALE)
 #define FONT_STRIDE    (6 * FONT_SCALE)
 #define STATUS_BAR_H   (22 * UI_SCALE)
+/* Top of status bar content (below rounded top edge). */
+#define STATUS_BAR_TOP (ROUNDED_EDGE_INSET_TOP)
 #define MENU_ROW_H     (36 * UI_SCALE)
 #define MENU_ROW_PAD   (6 * UI_SCALE)
-#define MENU_MARGIN    (12 * UI_SCALE)
+/* Horizontal margin: internal padding + inset for rounded screen edges. */
+#define MENU_MARGIN    (12 * UI_SCALE + ROUNDED_EDGE_INSET_H)
+/* Usable content width (full width minus both rounded insets). */
+#define CONTENT_WIDTH  (SCREEN_WIDTH - 2 * ROUNDED_EDGE_INSET_H)
+/* Bottom nav: two buttons that fit within SCREEN_WIDTH. */
+#define BOTTOM_BAR_H      (FONT_CHAR_H + 10 * UI_SCALE)
+#define BOTTOM_BAR_GAP    (10 * UI_SCALE)
+#define BOTTOM_BAR_MARGIN (MENU_MARGIN)
 
 #define TARGET_FPS_IDLE   30
 #define TARGET_FPS_ACTIVE 60

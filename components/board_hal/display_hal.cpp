@@ -9,11 +9,9 @@
 #elif LUMARI_BOARD_WAVESHARE_ESP32_S3_AMOLED_2_06
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
-#include "esp_intr_types.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_lcd_co5300.h"
-#include "hal/lcd_types.h"
 #else
 #include "driver/gpio.h"
 #include "driver/ledc.h"
@@ -26,7 +24,7 @@
 static const char *TAG = "display_hal";
 
 static esp_lcd_panel_handle_t s_panel_handle = nullptr;
-static uint8_t s_last_brightness = 80; /* re-applied on wake so panel isn't black */
+static uint8_t s_last_brightness = 80;
 #if LUMARI_BOARD_QEMU
 static void *s_qemu_fb = nullptr;
 #elif LUMARI_BOARD_WAVESHARE_ESP32_S3_AMOLED_2_06
@@ -54,63 +52,30 @@ void display_hal_init(void)
     ESP_ERROR_CHECK(esp_lcd_rgb_qemu_get_frame_buffer(s_panel_handle, &s_qemu_fb));
     ESP_LOGI(TAG, "QEMU display init OK %dx%d", (int)SCREEN_WIDTH, (int)SCREEN_HEIGHT);
 #elif LUMARI_BOARD_WAVESHARE_ESP32_S3_AMOLED_2_06
-    /* CO5300 AMOLED over QSPI — manual config to match current ESP-IDF (CO5300 macros are outdated) */
+    /* CO5300 AMOLED over QSPI */
     const size_t max_transfer = (size_t)SCREEN_WIDTH * LCD_FLUSH_CHUNK_LINES * sizeof(uint16_t);
-    const spi_bus_config_t bus_cfg = {
-        .data0_io_num = LCD_PIN_DATA0,
-        .data1_io_num = LCD_PIN_DATA1,
-        .sclk_io_num = LCD_PIN_PCLK,
-        .data2_io_num = LCD_PIN_DATA2,
-        .data3_io_num = LCD_PIN_DATA3,
-        .data4_io_num = -1,
-        .data5_io_num = -1,
-        .data6_io_num = -1,
-        .data7_io_num = -1,
-        .max_transfer_sz = (int)max_transfer,
-        .flags = 0,
-        .isr_cpu_id = ESP_INTR_CPU_AFFINITY_AUTO,
-        .intr_flags = 0,
-    };
+    const spi_bus_config_t bus_cfg = CO5300_PANEL_BUS_QSPI_CONFIG(
+        LCD_PIN_PCLK,
+        LCD_PIN_DATA0,
+        LCD_PIN_DATA1,
+        LCD_PIN_DATA2,
+        LCD_PIN_DATA3,
+        max_transfer);
     ESP_ERROR_CHECK(spi_bus_initialize((spi_host_device_t)LCD_QSPI_HOST, &bus_cfg, SPI_DMA_CH_AUTO));
 
-    const esp_lcd_panel_io_spi_config_t io_cfg = {
-        .cs_gpio_num = LCD_PIN_CS,
-        .dc_gpio_num = -1,
-        .spi_mode = 0,
-        .pclk_hz = 40 * 1000 * 1000,
-        .trans_queue_depth = 10,
-        .on_color_trans_done = NULL,
-        .user_ctx = NULL,
-        .lcd_cmd_bits = 32,
-        .lcd_param_bits = 8,
-        .flags = {
-            .dc_high_on_cmd = 0,
-            .dc_low_on_data = 0,
-            .dc_low_on_param = 0,
-            .octal_mode = 0,
-            .quad_mode = 1,
-            .sio_mode = 0,
-            .lsb_first = 0,
-            .cs_high_active = 0,
-        },
-    };
+    const esp_lcd_panel_io_spi_config_t io_cfg = CO5300_PANEL_IO_QSPI_CONFIG(LCD_PIN_CS, NULL, NULL);
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)LCD_QSPI_HOST, &io_cfg, &s_io_handle));
 
-    static co5300_vendor_config_t vendor_config = {
-        .init_cmds = NULL,
-        .init_cmds_size = 0,
+    const co5300_vendor_config_t vendor_config = {
         .flags = {
-            .use_mipi_interface = 0,
             .use_qspi_interface = 1,
         },
     };
     const esp_lcd_panel_dev_config_t panel_cfg = {
         .reset_gpio_num = (gpio_num_t)LCD_PIN_RST,
-        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,
-        .data_endian = LCD_RGB_DATA_ENDIAN_BIG,
+        .rgb_ele_order  = LCD_RGB_ELEMENT_ORDER_RGB,
         .bits_per_pixel = 16,
-        .flags = {},
-        .vendor_config = &vendor_config,
+        .vendor_config  = (void *)&vendor_config,
     };
     ESP_ERROR_CHECK(esp_lcd_new_panel_co5300(s_io_handle, &panel_cfg, &s_panel_handle));
     ESP_ERROR_CHECK(esp_lcd_panel_reset(s_panel_handle));
@@ -199,9 +164,7 @@ void display_hal_flush(uint16_t *framebuffer)
 #endif
 }
 
-/* Minimum brightness so the screen never goes fully black (unrecoverable on AMOLED). */
 #define BRIGHTNESS_MIN_PERCENT 30
-
 void display_hal_set_brightness(uint8_t percent)
 {
     if (percent > 100) percent = 100;
@@ -238,7 +201,6 @@ void display_hal_wake(void)
 #if !LUMARI_BOARD_QEMU
     if (s_panel_handle != nullptr) {
         esp_lcd_panel_disp_on_off(s_panel_handle, true);
-        /* Re-apply brightness after wake (AMOLED/panel may reset it when sleeping). */
         display_hal_set_brightness(s_last_brightness);
     }
 #endif

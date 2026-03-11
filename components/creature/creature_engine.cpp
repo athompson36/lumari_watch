@@ -176,14 +176,14 @@ void creature_engine_render(uint16_t *framebuffer, uint32_t time_ms)
 
     inventory_draw_accessory(framebuffer, cx, head_cy, draw_cy, body_r, head_r);
 
-    /* XP top-right: use scaled font position */
-    draw_number(framebuffer, SCREEN_WIDTH - MENU_MARGIN, STATUS_BAR_H / 2 - FONT_CHAR_H / 2, s_xp, XP_COLOR);
+    /* XP top-right: below rounded top edge */
+    draw_number(framebuffer, SCREEN_WIDTH - MENU_MARGIN, STATUS_BAR_TOP + STATUS_BAR_H / 2 - FONT_CHAR_H / 2, s_xp, XP_COLOR);
 
     {
         int bar_w = SCREEN_WIDTH * 6 / 10;
         int bar_h = 8 * UI_SCALE;
         int bx = (SCREEN_WIDTH - bar_w) / 2;
-        int by = SCREEN_HEIGHT - bar_h - 6 * UI_SCALE;
+        int by = SCREEN_HEIGHT - BOTTOM_BAR_H - bar_h - 6 * UI_SCALE;
         draw_rect(framebuffer, bx, by, bar_w, bar_h, MOMENTUM_BG_COLOR);
         int fill_w = (bar_w * s_momentum) / 100;
         if (fill_w > 0)

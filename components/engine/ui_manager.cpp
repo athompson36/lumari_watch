@@ -12,6 +12,7 @@ static UIState s_ui_state;
 void ui_manager_init(void)
 {
     s_ui_state.current_screen = UI_SCREEN_HOME;
+    s_ui_state.settings_page = SETTINGS_PAGE_MAIN;
 }
 
 void ui_manager_update(void)
@@ -27,19 +28,19 @@ void ui_manager_render(uint16_t* framebuffer, uint32_t time_ms)
             ui_home_render(framebuffer, time_ms);
             break;
         case UI_SCREEN_QUESTS:
-            ui_quest_render(framebuffer);
+            ui_quest_render(framebuffer, time_ms);
             break;
         case UI_SCREEN_INVENTORY:
-            ui_inventory_render(framebuffer);
+            ui_inventory_render(framebuffer, time_ms);
             break;
         case UI_SCREEN_CRAFTING:
-            ui_crafting_render(framebuffer);
+            ui_crafting_render(framebuffer, time_ms);
             break;
         case UI_SCREEN_LORE:
-            ui_lore_render(framebuffer);
+            ui_lore_render(framebuffer, time_ms);
             break;
         case UI_SCREEN_SYSTEM:
-            ui_system_render(framebuffer);
+            ui_system_render(framebuffer, time_ms);
             break;
         default:
             ui_home_render(framebuffer, time_ms);
@@ -70,4 +71,25 @@ void ui_manager_previous_screen(void)
 int ui_manager_current_screen(void)
 {
     return (int)s_ui_state.current_screen;
+}
+
+int ui_manager_get_settings_page(void)
+{
+    return (int)s_ui_state.settings_page;
+}
+
+void ui_manager_settings_enter(int page)
+{
+    if (page >= 0 && page < (int)SETTINGS_PAGE_COUNT)
+        s_ui_state.settings_page = (SettingsPage)page;
+}
+
+void ui_manager_settings_back(void)
+{
+    s_ui_state.settings_page = SETTINGS_PAGE_MAIN;
+}
+
+int ui_manager_is_in_settings_subpage(void)
+{
+    return s_ui_state.settings_page != SETTINGS_PAGE_MAIN ? 1 : 0;
 }

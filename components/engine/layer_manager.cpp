@@ -17,9 +17,9 @@
 #define TIME_COLOR          0xAD55
 #define DATE_COLOR          0x8C71
 #define BATTERY_COLOR       0xAD55
-/* Layout uses STATUS_BAR_H, MENU_ROW_H, etc. from lumari_config.h (scale-aware). */
-#define MENU_TITLE_Y        (12 * UI_SCALE)
-#define MENU_CRAFT_TOP_Y    (40 * UI_SCALE)
+/* Layout: below rounded top edge (STATUS_BAR_TOP). */
+#define MENU_TITLE_Y        (STATUS_BAR_TOP + 12 * UI_SCALE)
+#define MENU_CRAFT_TOP_Y    (STATUS_BAR_TOP + 40 * UI_SCALE)
 #define MENU_CRAFT_BOT_Y    (MENU_CRAFT_TOP_Y + MENU_ROW_H)
 #define MENU_EQUIP_TOP_Y    (MENU_CRAFT_BOT_Y + MENU_ROW_PAD)
 #define MENU_EQUIP_BOT_Y    (MENU_EQUIP_TOP_Y + MENU_ROW_H)
@@ -27,7 +27,7 @@
 #define MENU_NAME_BOT_Y     (MENU_NAME_TOP_Y + MENU_ROW_H)
 #define MENU_LORE_TOP_Y     (MENU_NAME_BOT_Y + MENU_ROW_PAD)
 #define MENU_LORE_BOT_Y     (MENU_LORE_TOP_Y + MENU_ROW_H)
-#define LORE_BACK_TOP_Y     (40 * UI_SCALE)
+#define LORE_BACK_TOP_Y     (STATUS_BAR_TOP + 40 * UI_SCALE)
 #define LORE_BACK_BOT_Y     (LORE_BACK_TOP_Y + MENU_ROW_H)
 #define LORE_EVOLUTION_TOP_Y  (LORE_BACK_BOT_Y + MENU_ROW_PAD)
 #define LORE_EVOLUTION_BOT_Y  (LORE_EVOLUTION_TOP_Y + MENU_ROW_H)
@@ -38,8 +38,8 @@
 #define MENU_EQUIP_Y         (MENU_EQUIP_TOP_Y + MENU_ROW_H / 2 - FONT_CHAR_H / 2)
 #define MENU_NAME_Y          (MENU_NAME_TOP_Y + MENU_ROW_H / 2 - FONT_CHAR_H / 2)
 #define MENU_LORE_ROW_Y      (MENU_LORE_TOP_Y + MENU_ROW_H / 2 - FONT_CHAR_H / 2)
-#define MENU_FOOTER_Y        (SCREEN_HEIGHT - 8 * UI_SCALE - FONT_CHAR_H)
-#define CUTSCENE_TAP_Y       (SCREEN_HEIGHT - 6 * UI_SCALE - FONT_CHAR_H)
+#define MENU_FOOTER_Y        (SCREEN_HEIGHT - BOTTOM_BAR_H - 8 * UI_SCALE - FONT_CHAR_H)
+#define CUTSCENE_TAP_Y       (SCREEN_HEIGHT - BOTTOM_BAR_H - 6 * UI_SCALE - FONT_CHAR_H)
 
 static int str_width(const char *s)
 {
@@ -112,7 +112,7 @@ void layer_manager_render(uint16_t* framebuffer, bool menu_open, uint32_t time_m
             const accessory_def_t *def = inventory_get_def(eq);
             const char *name = (eq == 0) ? "NONE" : (def ? def->name : "???");
             int name_len = 0;
-            while (name && name[name_len]) name_len++;
+            while (name && name_len < 16 && name[name_len]) name_len++;
             draw_string(framebuffer, SCREEN_WIDTH / 2 - (name_len * FONT_STRIDE) / 2, MENU_NAME_Y, name, MENU_TEXT_COLOR);
             draw_rect(framebuffer, MENU_MARGIN, MENU_LORE_TOP_Y - MENU_ROW_PAD,
                      SCREEN_WIDTH - 2 * MENU_MARGIN, MENU_ROW_H + 2 * MENU_ROW_PAD, MENU_ROW_BG_COLOR);
