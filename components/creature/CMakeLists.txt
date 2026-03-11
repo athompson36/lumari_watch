@@ -1,5 +1,5 @@
 idf_component_register(
     SRCS "creature_engine.cpp"
     INCLUDE_DIRS "."
-    REQUIRES engine inventory
+    REQUIRES engine inventory config
 )

@@ -22,11 +22,23 @@
  * 198×240 preserves 410/502 ≈ 0.817; RGB565 framebuffer = 95,040 bytes. */
 #define SCREEN_WIDTH  198
 #define SCREEN_HEIGHT 240
+#define UI_SCALE    1
+#define FONT_SCALE  1
 #else
 /* Hardware: Waveshare ESP32-S3-Touch-AMOLED-2.06 — 2.06" AMOLED 410×502, 16.7M colors, CO5300 QSPI. */
 #define SCREEN_WIDTH  410
 #define SCREEN_HEIGHT 502
+#define UI_SCALE    2
+#define FONT_SCALE  4
 #endif
+/* Font: 5x7 base scaled by FONT_SCALE (double previous = 4 on HW). Layout uses UI_SCALE. */
+#define FONT_CHAR_W    (5 * FONT_SCALE)
+#define FONT_CHAR_H    (7 * FONT_SCALE)
+#define FONT_STRIDE    (6 * FONT_SCALE)
+#define STATUS_BAR_H   (22 * UI_SCALE)
+#define MENU_ROW_H     (36 * UI_SCALE)
+#define MENU_ROW_PAD   (6 * UI_SCALE)
+#define MENU_MARGIN    (12 * UI_SCALE)
 
 #define TARGET_FPS_IDLE   30
 #define TARGET_FPS_ACTIVE 60

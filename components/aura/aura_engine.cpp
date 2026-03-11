@@ -57,13 +57,14 @@ void aura_draw(
 {
     if (!s_crafted || !framebuffer) return;
 
-    /* Subtle pulse: radius varies slightly over time (period ~2s). */
+    /* Subtle pulse: radius varies slightly over time (period ~2s). Scaled for resolution. */
+    int base = (SCREEN_WIDTH + SCREEN_HEIGHT) / 14;
     int phase = (int)(time_ms / 32) % 64;
     int pulse = (phase < 32) ? phase : (64 - phase);
-    int r_outer = 58 + pulse / 4;
-    int r_inner = 46 - pulse / 8;
-    if (r_inner < 38) r_inner = 38;
-    if (r_outer > 72) r_outer = 72;
+    int r_outer = base + 8 + pulse / 4;
+    int r_inner = base - 4 - pulse / 8;
+    if (r_inner < base - 12) r_inner = base - 12;
+    if (r_outer > base + 24) r_outer = base + 24;
 
     draw_ring_local(framebuffer, cx, cy, r_inner, r_outer, AURA_COLOR);
 }

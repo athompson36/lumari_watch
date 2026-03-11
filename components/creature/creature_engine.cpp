@@ -3,6 +3,11 @@
 #include "inventory_engine.h"
 #include "lumari_config.h"
 
+/* Resolution-scaled sizes: creature fills ~40% of width on 410×502. */
+#define BODY_RADIUS   (SCREEN_WIDTH / 5)
+#define HEAD_RADIUS   (SCREEN_WIDTH / 8)
+#define HEAD_OFFSET_Y (SCREEN_HEIGHT / 16)
+
 /* Phase 1: Lumari Seedling – pastel blob + XP stub. Phase 2: momentum meter + mood + animation */
 static unsigned s_xp = 0;
 static unsigned s_momentum = 0; /* 0–100 */
@@ -116,15 +121,17 @@ void creature_engine_render(uint16_t *framebuffer, uint32_t time_ms)
     int cx = SCREEN_WIDTH / 2;
     int cy = SCREEN_HEIGHT / 2;
 
-    /* Idle bob: gentle Y offset (period ~2.5s), 4 pixels amplitude */
-    int bob_phase = (int)((time_ms / 10) % 256);
-    int bob_y = (s_mood == CREATURE_MOOD_SLEEP) ? 0 : (isin(bob_phase) * 4 / 128);
-    int draw_cy = cy + bob_y;
-    int head_cy = draw_cy - 28;
+    int body_r = BODY_RADIUS;
+    int head_r = HEAD_RADIUS;
+    int head_offset_y = HEAD_OFFSET_Y;
 
-    int body_r = 40;
-    int head_r = 24;
-    int head_offset_y = 28;
+    /* Idle bob: gentle Y offset (period ~2.5s), scaled amplitude */
+    int bob_amp = 4 * UI_SCALE;
+    int bob_phase = (int)((time_ms / 10) % 256);
+    int bob_y = (s_mood == CREATURE_MOOD_SLEEP) ? 0 : (isin(bob_phase) * bob_amp / 128);
+    int draw_cy = cy + bob_y;
+    int head_cy = draw_cy - head_offset_y;
+
     uint16_t body_color = SEEDLING_COLOR_BODY;
     uint16_t head_color = SEEDLING_COLOR_HEAD;
 
@@ -132,9 +139,9 @@ void creature_engine_render(uint16_t *framebuffer, uint32_t time_ms)
     if (stage >= 1) {
         body_color = EVOLVED_COLOR_BODY;
         head_color = EVOLVED_COLOR_HEAD;
-        body_r = 44;
-        head_r = 26;
-        head_offset_y = 30;
+        body_r = BODY_RADIUS + SCREEN_WIDTH / 41;
+        head_r = HEAD_RADIUS + SCREEN_WIDTH / 41;
+        head_offset_y = HEAD_OFFSET_Y + SCREEN_HEIGHT / 84;
         head_cy = draw_cy - head_offset_y;
     }
 
@@ -143,28 +150,40 @@ void creature_engine_render(uint16_t *framebuffer, uint32_t time_ms)
         head_r = head_r * 9 / 10;
     }
 
-    /* Happy glow: subtle ring around creature */
+    /* Happy glow: subtle ring around creature, scaled */
     if (s_mood == CREATURE_MOOD_HAPPY) {
         int glow_phase = (int)((time_ms / 50) % 64);
         int g = (glow_phase < 32) ? glow_phase : (64 - glow_phase);
-        int r_outer = 52 + g / 4;
-        int r_inner = 46 - g / 8;
-        if (r_inner < 40) r_inner = 40;
+        int r_outer = body_r + 12 * UI_SCALE + g / 4;
+        int r_inner = body_r + 4 * UI_SCALE - g / 8;
+        if (r_inner < body_r) r_inner = body_r;
         draw_ring(framebuffer, cx, draw_cy, r_inner, r_outer, HAPPY_GLOW_COLOR);
     }
 
     draw_fill_circle(framebuffer, cx, draw_cy, body_r, body_color);
     draw_fill_circle(framebuffer, cx, head_cy, head_r, head_color);
 
+    /* Simple eyes (two small circles on head; skip when sleeping) */
+    if (s_mood != CREATURE_MOOD_SLEEP) {
+        int eye_r = head_r / 4;
+        if (eye_r < 2) eye_r = 2;
+        int eye_off_x = head_r / 2;
+        int eye_y = head_cy - head_r / 4;
+        uint16_t eye_color = (stage >= 1) ? 0x001F : 0x3186;
+        draw_fill_circle(framebuffer, cx - eye_off_x, eye_y, eye_r, eye_color);
+        draw_fill_circle(framebuffer, cx + eye_off_x, eye_y, eye_r, eye_color);
+    }
+
     inventory_draw_accessory(framebuffer, cx, head_cy, draw_cy, body_r, head_r);
 
-    draw_number(framebuffer, SCREEN_WIDTH - 36, 10, s_xp, XP_COLOR);
+    /* XP top-right: use scaled font position */
+    draw_number(framebuffer, SCREEN_WIDTH - MENU_MARGIN, STATUS_BAR_H / 2 - FONT_CHAR_H / 2, s_xp, XP_COLOR);
 
     {
-        int bar_w = 120;
-        int bar_h = 8;
+        int bar_w = SCREEN_WIDTH * 6 / 10;
+        int bar_h = 8 * UI_SCALE;
         int bx = (SCREEN_WIDTH - bar_w) / 2;
-        int by = SCREEN_HEIGHT - bar_h - 10;
+        int by = SCREEN_HEIGHT - bar_h - 6 * UI_SCALE;
         draw_rect(framebuffer, bx, by, bar_w, bar_h, MOMENTUM_BG_COLOR);
         int fill_w = (bar_w * s_momentum) / 100;
         if (fill_w > 0)

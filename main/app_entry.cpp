@@ -8,6 +8,7 @@
 #include "cutscene_engine.h"
 #include "storage_engine.h"
 #include "layer_manager.h"
+#include "ui_manager.h"
 #include "input_hal.h"
 #include "driver/gpio.h"
 #include "time_service.h"
@@ -26,7 +27,7 @@
 #define WRIST_UP_G           (2.0f)
 #define WRIST_DEBOUNCE_MS   800
 /* Don't allow display sleep until this many ms after boot (avoids black screen from bad IMU/init). */
-#define WRIST_SLEEP_GRACE_MS 4000
+#define WRIST_SLEEP_GRACE_MS 20000
 #define SENSOR_TASK_PERIOD_MS 20
 /* Set to 1 to log button/touch state every 3s on serial (for input troubleshooting). */
 #define LUMARI_INPUT_DEBUG  1
@@ -59,7 +60,20 @@ static void sensor_task(void*)
 
     for (;;) {
         uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000ULL);
-        bool btn = input_hal_button_read() || power_service_poll_pwr_button_short();
+        bool pwr = power_service_poll_pwr_button_short();
+        if (pwr)
+            ui_manager_go_home();
+        bool btn = input_hal_button_read() || pwr;
+
+        /* Wake display on any button press when screen is off (so black screen isn't stuck). */
+        if (display_off && btn) {
+            display_hal_wake();
+            display_off = false;
+            creature_engine_set_mood(CREATURE_MOOD_IDLE);
+            wrist_down_ms = 0;
+            wrist_up_ms = 0;
+        }
+
 #if LUMARI_INPUT_DEBUG
         if (!input_diag_done && now_ms >= 2500) {
             int boot_level = gpio_get_level((gpio_num_t)BUTTON_BOOT_PIN);
@@ -85,7 +99,7 @@ static void sensor_task(void*)
             if (btn_prev) {
                 uint32_t held = now_ms - btn_down_ms;
                 if (held < LONG_PRESS_MS)
-                    menu_open = !menu_open;
+                    ui_manager_next_screen();
                 else if (menu_open) {
                     menu_open = false;
                     lore_menu_open = false;
@@ -227,6 +241,7 @@ extern "C" void app_entry_start(void)
     inventory_init();
     aura_engine_init();
     cutscene_init();
+    ui_manager_init();
 
     /* Load persisted state */
     {
@@ -275,7 +290,18 @@ extern "C" void app_entry_start(void)
 #endif
         for (;;) {
             uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000ULL);
-            bool btn = input_hal_button_read() || power_service_poll_pwr_button_short();
+            bool pwr = power_service_poll_pwr_button_short();
+            if (pwr) ui_manager_go_home();
+            bool btn = input_hal_button_read() || pwr;
+
+            if (display_off && btn) {
+                display_hal_wake();
+                display_off = false;
+                creature_engine_set_mood(CREATURE_MOOD_IDLE);
+                wrist_down_ms = 0;
+                wrist_up_ms = 0;
+            }
+
 #if LUMARI_INPUT_DEBUG
             if (!input_diag_done && now_ms >= 2500) {
                 int boot_level = gpio_get_level((gpio_num_t)BUTTON_BOOT_PIN);
@@ -297,7 +323,7 @@ extern "C" void app_entry_start(void)
                 } else {
                     if (btn_prev) {
                         uint32_t held = now_ms - btn_down_ms;
-                        if (held < LONG_PRESS_MS) menu_open = !menu_open;
+                        if (held < LONG_PRESS_MS) ui_manager_next_screen();
                         else if (menu_open) {
                             menu_open = false;
                             lore_menu_open = false;

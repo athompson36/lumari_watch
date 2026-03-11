@@ -126,25 +126,38 @@ uint32_t inventory_get_unlocked_bitfield(void)
 
 static void draw_crown(uint16_t *fb, int cx, int head_cy, int head_r)
 {
-    int apex_y = head_cy - head_r - 12;
-    draw_fill_triangle(fb, cx, apex_y + 8, 10, 16, COLOR_GOLD);
+    int halfw = head_r * 5 / 12;
+    if (halfw < 4) halfw = 4;
+    int h = head_r * 2 / 3;
+    if (h < 8) h = 8;
+    int apex_y = head_cy - head_r - head_r / 4;
+    draw_fill_triangle(fb, cx, apex_y + head_r / 3, halfw, h, COLOR_GOLD);
 }
 
 static void draw_halo(uint16_t *fb, int cx, int head_cy, int head_r)
 {
-    int halo_y = head_cy - head_r - 10;
-    draw_fill_circle(fb, cx, halo_y, 10, COLOR_YELLOW);
+    int halo_r = head_r * 4 / 10;
+    if (halo_r < 4) halo_r = 4;
+    int halo_y = head_cy - head_r - head_r / 4;
+    draw_fill_circle(fb, cx, halo_y, halo_r, COLOR_YELLOW);
 }
 
 static void draw_scarf(uint16_t *fb, int cx, int head_cy, int head_r)
 {
-    int scarf_y = head_cy - head_r - 4;
-    draw_rect(fb, cx - 22, scarf_y, 44, 10, COLOR_RED);
+    int w = head_r * 2;
+    if (w < 20) w = 20;
+    int scarf_h = head_r * 4 / 10;
+    if (scarf_h < 4) scarf_h = 4;
+    int scarf_y = head_cy - head_r - head_r / 8;
+    draw_rect(fb, cx - w / 2, scarf_y, w, scarf_h, COLOR_RED);
 }
 
 static void draw_shield(uint16_t *fb, int cx, int body_cy, int body_r)
 {
-    draw_fill_circle(fb, cx + body_r + 8, body_cy, 12, COLOR_BLUE);
+    int shield_r = body_r * 3 / 10;
+    if (shield_r < 6) shield_r = 6;
+    int off = body_r * 2 / 5;
+    draw_fill_circle(fb, cx + body_r + off, body_cy, shield_r, COLOR_BLUE);
 }
 
 void inventory_draw_accessory(

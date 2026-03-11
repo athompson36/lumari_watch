@@ -63,3 +63,10 @@ void draw_two_digits(
     int x, int y, unsigned value,
     uint16_t color
 );
+
+/* Draw short date "M/D" or "MM/D" (month, day 1–31). */
+void draw_short_date(
+    uint16_t* framebuffer,
+    int x, int y, uint8_t month, uint8_t day,
+    uint16_t color
+);
