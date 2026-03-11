@@ -56,13 +56,13 @@ There is **no separate “factory firmware” download** listed on the wiki; the
 | Item | Official/joaquimorg BSP | Lumari |
 |------|-------------------------|--------|
 | Display | SH8601 (QSPI) | CO5300 (QSPI) |
-| Touch driver | **esp_lcd_touch_ft5x06** (full init, reset, read) | Custom FT3168 (reg 0x02 + 6-byte read) |
+| Touch driver | **esp_lcd_touch_ft5x06** (full init, reset, read) | **esp_lcd_touch_ft5x06** (same; FT3168 compatible) |
 | Touch RST | BSP_LCD_TOUCH_RST = GPIO 9 | TOUCH_PIN_RST = 9 |
 | Touch I2C | Same bus, CONFIG_BSP_I2C_CLK_SPEED_HZ (e.g. 400 kHz) | 400 kHz, 100 ms timeout |
 | PWR button | **bsp_power_poll_pwr_button_short()** (AXP2101 INTSTS2 bit 1) | **power_service_poll_pwr_button_short()** (same idea) |
 | BOOT button | GPIO0 (BSP has BSP_CAPS_BUTTONS 0; may not expose) | GPIO0 in **input_hal_button_read()** |
 
-So: **PWR** is aligned with factory (PMIC). **Touch** in Lumari uses a minimal FT3168 read; BSP uses the full FT5x06 driver (reset sequence, init, then read). If touch still fails after I2C probe and RST timing, the next step is to use **esp_lcd_touch_ft5x06** for touch.
+So: **PWR** is aligned with factory (PMIC). **Touch** in Lumari now uses **esp_lcd_touch_ft5x06** (same as BSP). Phase 0 demo calls **power_service_init()** so the PWR button works there too. If input still fails, run serial monitor and check **LUMARI_INPUT_DEBUG** logs (every 3s: btn=, touch=, (x,y)=).
 
 ---
 
@@ -88,7 +88,7 @@ If **touch probe=fail**: FT3168 not answering on I2C. Check: RST sequence (GPIO9
 - **Init order:** Touch RST (GPIO9) before I2C bus creation; then add touch device; then other I2C devices (IMU, RTC, AXP2101).
 - **I2C:** 400 kHz, 100 ms timeout. Shared bus with IMU/RTC/PMIC — ensure no driver holds the bus.
 - **Protocol:** Reg 0x02 = number of points; 0x03–0x06 = P1 XH, XL, YH, YL. Same as FT5x06.
-- **Fallback:** Add **esp_lcd_touch_ft5x06** component and use it for touch (keeps CO5300 for display). BSP does: `esp_lcd_touch_new_i2c_ft5x06(tp_io_handle, &tp_cfg, ret_touch)` with rst_gpio_num=9, int_gpio_num=38.
+- **Done:** Lumari uses **esp_lcd_touch_ft5x06** (rst_gpio_num=9, int_gpio_num=38). Set **LUMARI_INPUT_DEBUG** to 1 in app_entry.cpp to log btn/touch every 3s on serial.
 
 ### 5.4 Verify hardware with factory/test firmware
 

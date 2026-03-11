@@ -8,6 +8,9 @@
 
 #if LUMARI_BOARD_WAVESHARE_ESP32_S3_AMOLED_2_06
 #include "driver/i2c_master.h"
+#include "esp_lcd_panel_io.h"
+#include "esp_lcd_touch.h"
+#include "esp_lcd_touch_ft5x06.h"
 #else
 #include "driver/spi_master.h"
 #endif
@@ -15,13 +18,11 @@
 static const char *TAG = "input_hal";
 
 #if LUMARI_BOARD_WAVESHARE_ESP32_S3_AMOLED_2_06
-/* FT3168 capacitive touch over I2C (addr 0x38) */
+/* Touch: FT3168/FT5x06 over I2C (addr 0x38); use esp_lcd_touch_ft5x06 driver (BSP-compatible). */
 static i2c_master_bus_handle_t s_i2c_bus = nullptr;
-static i2c_master_dev_handle_t s_touch_dev = nullptr;
+static esp_lcd_panel_io_handle_t s_touch_io = nullptr;
+static esp_lcd_touch_handle_t s_touch_handle = nullptr;
 static bool s_touch_ok = false;
-/* FT3168 / FT5x06 style: reg 0x02 = touch points, 0x03-0x06 = P1 XH,XL,YH,YL */
-#define FT3168_REG_POINTS  0x02
-#define FT3168_REG_XH      0x03
 #else
 /* XPT2046 resistive over SPI */
 static spi_device_handle_t s_touch_spi = nullptr;
@@ -83,7 +84,7 @@ void input_hal_init(void)
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 
-    /* Touch: I2C bus + FT3168 at 0x38 */
+    /* Touch: I2C bus then FT5x06 driver (FT3168-compatible; BSP uses same driver). */
     i2c_master_bus_config_t bus_cfg = {
         .i2c_port          = I2C_NUM_0,
         .sda_io_num         = (gpio_num_t)I2C_MASTER_SDA,
@@ -99,30 +100,28 @@ void input_hal_init(void)
         ESP_LOGW(TAG, "I2C bus init failed (%s)", esp_err_to_name(err));
         return;
     }
-    /* FT3168: 400 kHz to match BSP (esp_lcd_touch_ft5x06); shared bus with IMU/RTC/power. */
-    const uint32_t touch_freq_hz = 400000;
-    i2c_device_config_t dev_cfg = {
-        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-        .device_address  = TOUCH_I2C_ADDR,
-        .scl_speed_hz    = touch_freq_hz,
-        .scl_wait_us     = 0,
-        .flags           = {},
-    };
-    err = i2c_master_bus_add_device(s_i2c_bus, &dev_cfg, &s_touch_dev);
-    s_touch_ok = (err == ESP_OK);
-    if (!s_touch_ok) {
-        ESP_LOGW(TAG, "Touch I2C add failed (%s); touch disabled", esp_err_to_name(err));
+    esp_lcd_panel_io_i2c_config_t io_cfg = ESP_LCD_TOUCH_IO_I2C_FT5x06_CONFIG();
+    io_cfg.scl_speed_hz = 400000;
+    err = esp_lcd_new_panel_io_i2c(s_i2c_bus, &io_cfg, &s_touch_io);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Touch panel IO failed (%s); touch disabled", esp_err_to_name(err));
     } else {
-        /* Probe: read one byte from reg 0x02 to verify FT3168 responds */
-        uint8_t reg = FT3168_REG_POINTS;
-        uint8_t probe = 0;
-        esp_err_t probe_err = i2c_master_transmit_receive(s_touch_dev, &reg, 1, &probe, 1, 100);
-        if (probe_err != ESP_OK)
-            ESP_LOGW(TAG, "Touch I2C probe failed (%s)", esp_err_to_name(probe_err));
-        ESP_LOGI(TAG, "Input init OK (BOOT GPIO%d, PWR=AXP2101, touch 0x%02X probe=%s)",
-                 (int)BUTTON_BOOT_PIN, (int)TOUCH_I2C_ADDR, probe_err == ESP_OK ? "OK" : "fail");
+        esp_lcd_touch_config_t tp_cfg = {
+            .x_max = (uint16_t)(SCREEN_WIDTH - 1),
+            .y_max = (uint16_t)(SCREEN_HEIGHT - 1),
+            .rst_gpio_num = (gpio_num_t)TOUCH_PIN_RST,
+            .int_gpio_num = (gpio_num_t)TOUCH_PIN_INT,
+            .levels = { .reset = 0, .interrupt = 0 },
+            .flags = { .swap_xy = 0, .mirror_x = 0, .mirror_y = 0 },
+        };
+        err = esp_lcd_touch_new_i2c_ft5x06(s_touch_io, &tp_cfg, &s_touch_handle);
+        s_touch_ok = (err == ESP_OK);
+        if (!s_touch_ok)
+            ESP_LOGW(TAG, "Touch FT5x06 init failed (%s); touch disabled", esp_err_to_name(err));
+        else
+            ESP_LOGI(TAG, "Input init OK (BOOT GPIO%d, PWR=AXP2101, touch FT5x06 0x%02X)",
+                     (int)BUTTON_BOOT_PIN, (int)TOUCH_I2C_ADDR);
     }
-    /* Log button level at init for sanity (BOOT = 0 when pressed) */
     ESP_LOGI(TAG, "Button level at init: BOOT=%d", gpio_get_level((gpio_num_t)BUTTON_BOOT_PIN));
 #else
     spi_device_interface_config_t dev_cfg = {};
@@ -153,27 +152,23 @@ bool input_hal_touch_read(int *x, int *y)
     if (!y) return false;
 
 #if LUMARI_BOARD_WAVESHARE_ESP32_S3_AMOLED_2_06
-    if (!s_touch_ok || s_touch_dev == nullptr) {
+    if (!s_touch_ok || s_touch_handle == nullptr) {
         *x = 0; *y = 0;
         return false;
     }
-    uint8_t buf[6];
-    uint8_t reg_points = FT3168_REG_POINTS;
-    esp_err_t err = i2c_master_transmit_receive(s_touch_dev, &reg_points, 1, buf, sizeof(buf), 100);
-    if (err != ESP_OK) {
+    if (esp_lcd_touch_read_data(s_touch_handle) != ESP_OK) {
         *x = 0; *y = 0;
         return false;
     }
-    int points = buf[0] & 0x0F;
-    if (points < 1) {
+    esp_lcd_touch_point_data_t points[1];
+    uint8_t n = 0;
+    esp_lcd_touch_get_data(s_touch_handle, points, &n, 1);
+    if (n < 1) {
         *x = 0; *y = 0;
         return false;
     }
-    /* P1: X = (XH&0x0F)<<8 | XL, Y = (YH&0x0F)<<8 | YL. FT3168 reports panel coords (0..panel_w-1, 0..panel_h-1), not 0..4095. */
-    int raw_x = ((buf[1] & 0x0F) << 8) | buf[2];
-    int raw_y = ((buf[3] & 0x0F) << 8) | buf[4];
-    *x = raw_x;
-    *y = raw_y;
+    *x = (int)points[0].x;
+    *y = (int)points[0].y;
     if (*x < 0) *x = 0;
     if (*x >= SCREEN_WIDTH) *x = SCREEN_WIDTH - 1;
     if (*y < 0) *y = 0;

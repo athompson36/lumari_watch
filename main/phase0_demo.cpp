@@ -36,6 +36,7 @@ void phase0_demo_run(void)
 
     display_hal_init();
     input_hal_init();
+    power_service_init();  /* PWR button is on AXP2101; must init so power_service_poll_pwr_button_short() works */
     imu_service_init();
     time_service_init();
 

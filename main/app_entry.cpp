@@ -15,6 +15,7 @@
 #include "display_hal.h"
 #include "phase0_demo.h"
 #include "esp_timer.h"
+#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -24,6 +25,8 @@
 #define WRIST_UP_G           (2.0f)
 #define WRIST_DEBOUNCE_MS   800
 #define SENSOR_TASK_PERIOD_MS 20
+/* Set to 1 to log button/touch state every 3s on serial (for input troubleshooting). */
+#define LUMARI_INPUT_DEBUG  1
 #define SENSOR_TASK_STACK   4096
 #define RENDER_TASK_STACK   4096
 #define SENSOR_TASK_PRIO    (configMAX_PRIORITIES - 2)
@@ -45,10 +48,23 @@ static void sensor_task(void*)
     uint32_t wrist_up_ms = 0;
     bool menu_open = false;
     bool lore_menu_open = false;
+#if LUMARI_INPUT_DEBUG
+    uint32_t last_input_log_ms = 0;
+    int last_tx = 0, last_ty = 0;
+#endif
 
     for (;;) {
         uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000ULL);
         bool btn = input_hal_button_read() || power_service_poll_pwr_button_short();
+#if LUMARI_INPUT_DEBUG
+        if (now_ms - last_input_log_ms >= 3000) {
+            int tx = 0, ty = 0;
+            bool touch = input_hal_touch_read(&tx, &ty);
+            if (touch) { last_tx = tx; last_ty = ty; }
+            ESP_LOGI("input_dbg", "btn=%d touch=%d (x,y)=(%d,%d)", btn ? 1 : 0, touch ? 1 : 0, last_tx, last_ty);
+            last_input_log_ms = now_ms;
+        }
+#endif
 
         if (btn) {
             if (!btn_prev)
@@ -235,9 +251,22 @@ extern "C" void app_entry_start(void)
         bool display_off = false;
         uint32_t wrist_down_ms = 0;
         uint32_t wrist_up_ms = 0;
+#if LUMARI_INPUT_DEBUG
+        uint32_t last_input_log_ms = 0;
+        int last_tx = 0, last_ty = 0;
+#endif
         for (;;) {
             uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000ULL);
             bool btn = input_hal_button_read() || power_service_poll_pwr_button_short();
+#if LUMARI_INPUT_DEBUG
+            if (now_ms - last_input_log_ms >= 3000) {
+                int tx = 0, ty = 0;
+                bool touch = input_hal_touch_read(&tx, &ty);
+                if (touch) { last_tx = tx; last_ty = ty; }
+                ESP_LOGI("input_dbg", "btn=%d touch=%d (x,y)=(%d,%d)", btn ? 1 : 0, touch ? 1 : 0, last_tx, last_ty);
+                last_input_log_ms = now_ms;
+            }
+#endif
                 if (btn) {
                     if (!btn_prev) btn_down_ms = now_ms;
                     if ((now_ms - btn_down_ms) >= LONG_PRESS_MS) menu_open = true;
