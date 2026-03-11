@@ -72,11 +72,13 @@ Use this after flashing Lumari firmware. Serial monitor: `idf.py -p /dev/tty.usb
 
 ### 5.1 Confirm firmware and init
 
-- [ ] **Boot log:** “Input init OK (BOOT GPIO0, PWR=AXP2101, touch 0x38 probe=OK)” or “probe=fail”.
-- [ ] **Button level:** “Button level at init: BOOT=%d” — expect 1 when not pressed, 0 when pressed.
+- [ ] **Boot log:** “Input init OK (BOOT GPIO0, PWR=AXP2101, touch FT5x06 0x38)” or “Touch FT5x06 init failed” / “Touch disabled after 3 attempts”.
+- [ ] **Button level:** “Button level at init: BOOT=%d (0=pressed)” — expect 1 when not pressed, 0 when pressed.
 - [ ] **AXP2101:** “AXP2101 OK (status1=0x… status2=0x…)”.
+- [ ] **~2.5 s after boot:** “INPUT DIAG: touch_ok=1 BOOT_GPIO0=1 (0=pressed) PWR=poll” — touch_ok=0 means touch init failed; BOOT_GPIO0 should be 1 when not pressing BOOT.
+- [ ] **Every 3 s:** “btn=0 touch=0 (x,y)=(0,0)” — when you press/tap, btn or touch should change.
 
-If **touch probe=fail**: FT3168 not answering on I2C. Check: RST sequence (GPIO9), I2C pins (14/15), power (same rail as display). If **probe=OK** but no touch in app: try esp_lcd_touch_ft5x06 or add a periodic log of raw touch reg 0x02 + coords.
+If **touch init fails** (touch_ok=0): FT3168 not answering on I2C. Firmware now retries 3× with longer RST (20 ms low, 150 ms high). Check: RST GPIO9, I2C 14/15, power. If **touch_ok=1** but touch always 0: try re-tapping; check INT GPIO38 or try factory test firmware to confirm hardware.
 
 ### 5.2 Buttons
 

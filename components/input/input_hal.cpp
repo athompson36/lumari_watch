@@ -68,7 +68,7 @@ void input_hal_init(void)
 #if LUMARI_BOARD_WAVESHARE_ESP32_S3_AMOLED_2_06
     /* PWR button is on AXP2101 PMIC, polled via power_service_poll_pwr_button_short(); no GPIO10. */
 
-    /* Touch RST: assert reset before I2C so FT3168 is in known state when we first talk to it */
+    /* Touch RST: assert reset before I2C so FT3168 is in known state (Waveshare: "keep trying to init"). */
     if (TOUCH_PIN_RST >= 0) {
         gpio_config_t rst = {
             .pin_bit_mask = (1ULL << TOUCH_PIN_RST),
@@ -79,9 +79,9 @@ void input_hal_init(void)
         };
         gpio_config(&rst);
         gpio_set_level((gpio_num_t)TOUCH_PIN_RST, 0);
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(20));
         gpio_set_level((gpio_num_t)TOUCH_PIN_RST, 1);
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(150));
     }
 
     /* Touch: I2C bus then FT5x06 driver (FT3168-compatible; BSP uses same driver). */
@@ -101,11 +101,21 @@ void input_hal_init(void)
         return;
     }
     esp_lcd_panel_io_i2c_config_t io_cfg = ESP_LCD_TOUCH_IO_I2C_FT5x06_CONFIG();
+    io_cfg.dev_addr = TOUCH_I2C_ADDR;
     io_cfg.scl_speed_hz = 400000;
-    err = esp_lcd_new_panel_io_i2c(s_i2c_bus, &io_cfg, &s_touch_io);
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG, "Touch panel IO failed (%s); touch disabled", esp_err_to_name(err));
-    } else {
+    const int touch_retries = 3;
+    for (int attempt = 0; attempt < touch_retries && !s_touch_ok; attempt++) {
+        if (attempt > 0) {
+            ESP_LOGI(TAG, "Touch init retry %d/%d", attempt + 1, touch_retries);
+            vTaskDelay(pdMS_TO_TICKS(80));
+        }
+        s_touch_io = nullptr;
+        s_touch_handle = nullptr;
+        err = esp_lcd_new_panel_io_i2c(s_i2c_bus, &io_cfg, &s_touch_io);
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "Touch panel IO failed (%s)", esp_err_to_name(err));
+            continue;
+        }
         esp_lcd_touch_config_t tp_cfg = {
             .x_max = (uint16_t)(SCREEN_WIDTH - 1),
             .y_max = (uint16_t)(SCREEN_HEIGHT - 1),
@@ -116,13 +126,21 @@ void input_hal_init(void)
         };
         err = esp_lcd_touch_new_i2c_ft5x06(s_touch_io, &tp_cfg, &s_touch_handle);
         s_touch_ok = (err == ESP_OK);
-        if (!s_touch_ok)
-            ESP_LOGW(TAG, "Touch FT5x06 init failed (%s); touch disabled", esp_err_to_name(err));
-        else
+        if (!s_touch_ok) {
+            ESP_LOGW(TAG, "Touch FT5x06 init failed (%s)", esp_err_to_name(err));
+            if (s_touch_io) {
+                esp_lcd_panel_io_del(s_touch_io);
+                s_touch_io = nullptr;
+            }
+        } else {
             ESP_LOGI(TAG, "Input init OK (BOOT GPIO%d, PWR=AXP2101, touch FT5x06 0x%02X)",
                      (int)BUTTON_BOOT_PIN, (int)TOUCH_I2C_ADDR);
+            break;
+        }
     }
-    ESP_LOGI(TAG, "Button level at init: BOOT=%d", gpio_get_level((gpio_num_t)BUTTON_BOOT_PIN));
+    if (!s_touch_ok)
+        ESP_LOGW(TAG, "Touch disabled after %d attempts", touch_retries);
+    ESP_LOGI(TAG, "Button level at init: BOOT=%d (0=pressed)", gpio_get_level((gpio_num_t)BUTTON_BOOT_PIN));
 #else
     spi_device_interface_config_t dev_cfg = {};
     dev_cfg.clock_speed_hz = 2 * 1000 * 1000;
@@ -201,4 +219,9 @@ bool input_hal_button_read(void)
 #else
     return gpio_get_level((gpio_num_t)BUTTON_PIN) == 0;
 #endif
+}
+
+bool input_hal_touch_ok(void)
+{
+    return s_touch_ok;
 }

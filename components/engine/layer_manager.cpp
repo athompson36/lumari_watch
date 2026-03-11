@@ -5,11 +5,16 @@
 #include "aura_engine.h"
 #include "cutscene_engine.h"
 #include "sprite_renderer.h"
+#include "time_service.h"
 #include "lumari_config.h"
 
 #define MENU_OVERLAY_COLOR  0x3186
+#define MENU_ROW_BG_COLOR   0x2104
 #define MENU_TEXT_COLOR     0xFFFF
-#define QUEST_COLOR        0x07E0
+#define QUEST_COLOR         0x07E0
+#define TIME_COLOR          0xAD55
+#define MENU_ROW_PAD        4
+#define MENU_ROW_MARGIN     8
 /* Menu Y positions as fractions of SCREEN_HEIGHT (502 on HW) so QEMU 198×240 works. */
 #define MENU_CRAFT_TOP_Y    (40 * SCREEN_HEIGHT / 502)
 #define MENU_CRAFT_BOT_Y    (78 * SCREEN_HEIGHT / 502)
@@ -55,7 +60,18 @@ void layer_manager_render(uint16_t* framebuffer, bool menu_open, uint32_t time_m
     int cy = SCREEN_HEIGHT / 2;
     if (aura_crafted())
         aura_draw(framebuffer, cx, cy, time_ms);
-    creature_engine_render(framebuffer);
+    creature_engine_render(framebuffer, time_ms);
+
+    /* Time (top center): 12-hour H:MM */
+    {
+        time_service_datetime_t dt;
+        if (time_service_get(&dt)) {
+            int time_w = 45;
+            int time_x = (SCREEN_WIDTH - time_w) / 2;
+            if (time_x < 8) time_x = 8;
+            draw_time(framebuffer, time_x, 4, dt.hour, dt.min, TIME_COLOR);
+        }
+    }
 
     /* Quest progress HUD (top-left): "Q progress/goal" */
     {
@@ -72,23 +88,42 @@ void layer_manager_render(uint16_t* framebuffer, bool menu_open, uint32_t time_m
     if (menu_open) {
         draw_rect(framebuffer, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, MENU_OVERLAY_COLOR);
         if (lore_menu_open) {
+            draw_rect(framebuffer, MENU_ROW_MARGIN, LORE_BACK_TOP_Y - MENU_ROW_PAD,
+                     SCREEN_WIDTH - 2 * MENU_ROW_MARGIN, (LORE_BACK_BOT_Y - LORE_BACK_TOP_Y) + 2 * MENU_ROW_PAD, MENU_ROW_BG_COLOR);
             draw_string(framebuffer, SCREEN_WIDTH / 2 - 12, LORE_BACK_TOP_Y + 8, "BACK", MENU_TEXT_COLOR);
-            if (cutscene_lore_unlocked(CUTSCENE_ID_EVOLUTION))
+            if (cutscene_lore_unlocked(CUTSCENE_ID_EVOLUTION)) {
+                draw_rect(framebuffer, MENU_ROW_MARGIN, LORE_EVOLUTION_TOP_Y - MENU_ROW_PAD,
+                          SCREEN_WIDTH - 2 * MENU_ROW_MARGIN, (LORE_EVOLUTION_BOT_Y - LORE_EVOLUTION_TOP_Y) + 2 * MENU_ROW_PAD, MENU_ROW_BG_COLOR);
                 draw_string(framebuffer, SCREEN_WIDTH / 2 - 27, LORE_EVOLUTION_TOP_Y + 4, "EVOLUTION", MENU_TEXT_COLOR);
-            if (cutscene_lore_unlocked(CUTSCENE_ID_AETHERON_INTRO))
+            }
+            if (cutscene_lore_unlocked(CUTSCENE_ID_AETHERON_INTRO)) {
+                draw_rect(framebuffer, MENU_ROW_MARGIN, LORE_AETHERON_TOP_Y - MENU_ROW_PAD,
+                          SCREEN_WIDTH - 2 * MENU_ROW_MARGIN, (LORE_AETHERON_BOT_Y - LORE_AETHERON_TOP_Y) + 2 * MENU_ROW_PAD, MENU_ROW_BG_COLOR);
                 draw_string(framebuffer, SCREEN_WIDTH / 2 - 30, LORE_AETHERON_TOP_Y + 4, "AETHERON", MENU_TEXT_COLOR);
-            if (cutscene_lore_unlocked(CUTSCENE_ID_PIXEL_MODE))
+            }
+            if (cutscene_lore_unlocked(CUTSCENE_ID_PIXEL_MODE)) {
+                draw_rect(framebuffer, MENU_ROW_MARGIN, LORE_PIXEL_TOP_Y - MENU_ROW_PAD,
+                          SCREEN_WIDTH - 2 * MENU_ROW_MARGIN, (LORE_PIXEL_BOT_Y - LORE_PIXEL_TOP_Y) + 2 * MENU_ROW_PAD, MENU_ROW_BG_COLOR);
                 draw_string(framebuffer, SCREEN_WIDTH / 2 - 36, LORE_PIXEL_TOP_Y + 4, "PIXEL MODE", MENU_TEXT_COLOR);
+            }
         } else {
+            draw_rect(framebuffer, MENU_ROW_MARGIN, MENU_CRAFT_TOP_Y - MENU_ROW_PAD,
+                     SCREEN_WIDTH - 2 * MENU_ROW_MARGIN, (MENU_CRAFT_BOT_Y - MENU_CRAFT_TOP_Y) + 2 * MENU_ROW_PAD, MENU_ROW_BG_COLOR);
             if (aura_crafted())
                 draw_string(framebuffer, SCREEN_WIDTH / 2 - 27, MENU_CRAFT_TOP_Y, "AURA CALM", MENU_TEXT_COLOR);
             else if (aura_can_craft((unsigned)creature_engine_get_xp()))
                 draw_string(framebuffer, SCREEN_WIDTH / 2 - 42, MENU_CRAFT_TOP_Y, "CRAFT AURA 200", MENU_TEXT_COLOR);
+            draw_rect(framebuffer, MENU_ROW_MARGIN, MENU_EQUIP_Y - MENU_ROW_PAD,
+                     SCREEN_WIDTH - 2 * MENU_ROW_MARGIN, 28, MENU_ROW_BG_COLOR);
             draw_string(framebuffer, SCREEN_WIDTH / 2 - 12, MENU_EQUIP_Y, "EQUIP", MENU_TEXT_COLOR);
+            draw_rect(framebuffer, MENU_ROW_MARGIN, MENU_NAME_Y - MENU_ROW_PAD,
+                     SCREEN_WIDTH - 2 * MENU_ROW_MARGIN, 20, MENU_ROW_BG_COLOR);
             uint8_t eq = inventory_get_equipped();
             const accessory_def_t *def = inventory_get_def(eq);
             const char *name = (eq == 0) ? "NONE" : (def ? def->name : "???");
             draw_string(framebuffer, SCREEN_WIDTH / 2 - (int)(name[0] ? 12 : 0), MENU_NAME_Y, name, MENU_TEXT_COLOR);
+            draw_rect(framebuffer, MENU_ROW_MARGIN, MENU_LORE_TOP_Y - MENU_ROW_PAD,
+                     SCREEN_WIDTH - 2 * MENU_ROW_MARGIN, (MENU_LORE_BOT_Y - MENU_LORE_TOP_Y) + 2 * MENU_ROW_PAD, MENU_ROW_BG_COLOR);
             draw_string(framebuffer, SCREEN_WIDTH / 2 - 12, MENU_LORE_ROW_Y, "LORE", MENU_TEXT_COLOR);
             draw_string(framebuffer, 20, MENU_FOOTER_Y, "L R", MENU_TEXT_COLOR);
             draw_string(framebuffer, SCREEN_WIDTH / 2 - 45, MENU_FOOTER_Y, "BTN CLOSE", MENU_TEXT_COLOR);

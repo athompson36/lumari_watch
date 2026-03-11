@@ -9,6 +9,7 @@
 #include "storage_engine.h"
 #include "layer_manager.h"
 #include "input_hal.h"
+#include "driver/gpio.h"
 #include "time_service.h"
 #include "imu_service.h"
 #include "power_service.h"
@@ -24,6 +25,8 @@
 #define WRIST_DOWN_G         (-7.0f)
 #define WRIST_UP_G           (2.0f)
 #define WRIST_DEBOUNCE_MS   800
+/* Don't allow display sleep until this many ms after boot (avoids black screen from bad IMU/init). */
+#define WRIST_SLEEP_GRACE_MS 4000
 #define SENSOR_TASK_PERIOD_MS 20
 /* Set to 1 to log button/touch state every 3s on serial (for input troubleshooting). */
 #define LUMARI_INPUT_DEBUG  1
@@ -51,12 +54,19 @@ static void sensor_task(void*)
 #if LUMARI_INPUT_DEBUG
     uint32_t last_input_log_ms = 0;
     int last_tx = 0, last_ty = 0;
+    bool input_diag_done = false;
 #endif
 
     for (;;) {
         uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000ULL);
         bool btn = input_hal_button_read() || power_service_poll_pwr_button_short();
 #if LUMARI_INPUT_DEBUG
+        if (!input_diag_done && now_ms >= 2500) {
+            int boot_level = gpio_get_level((gpio_num_t)BUTTON_BOOT_PIN);
+            ESP_LOGI("input_dbg", "INPUT DIAG: touch_ok=%d BOOT_GPIO0=%d (0=pressed) PWR=poll",
+                     input_hal_touch_ok() ? 1 : 0, boot_level);
+            input_diag_done = true;
+        }
         if (now_ms - last_input_log_ms >= 3000) {
             int tx = 0, ty = 0;
             bool touch = input_hal_touch_read(&tx, &ty);
@@ -120,6 +130,8 @@ static void sensor_task(void*)
             cutscene_start(CUTSCENE_ID_EVOLUTION);
         }
 
+        creature_engine_tick(now_ms);
+
         imu_service_update();
         unsigned step_delta = imu_service_get_step_delta();
         if (step_delta > 0) {
@@ -128,7 +140,9 @@ static void sensor_task(void*)
             if (quest_engine_just_completed())
                 completed = true;
             creature_engine_add_steps(step_delta);
+            creature_engine_set_happy_until_ms(now_ms + 2000);
             if (completed) {
+                creature_engine_set_happy_until_ms(now_ms + 2000);
                 storage_save_creature((uint32_t)creature_engine_get_xp(), (uint32_t)creature_engine_get_momentum());
                 storage_save_quest(quest_engine_get_current_quest_index(), quest_engine_get_progress());
                 storage_save_inventory(inventory_get_equipped(), inventory_get_unlocked_bitfield());
@@ -141,7 +155,9 @@ static void sensor_task(void*)
         if (az_g < WRIST_DOWN_G) {
             wrist_down_ms = (wrist_down_ms == 0) ? now_ms : wrist_down_ms;
             wrist_up_ms = 0;
-            if ((now_ms - wrist_down_ms) >= WRIST_DEBOUNCE_MS && !display_off) {
+            if (now_ms >= WRIST_SLEEP_GRACE_MS &&
+                (now_ms - wrist_down_ms) >= WRIST_DEBOUNCE_MS && !display_off) {
+                creature_engine_set_mood(CREATURE_MOOD_SLEEP);
                 display_hal_sleep();
                 display_off = true;
             }
@@ -151,6 +167,7 @@ static void sensor_task(void*)
             if (display_off) {
                 display_hal_wake();
                 display_off = false;
+                creature_engine_set_mood(CREATURE_MOOD_IDLE);
             }
         } else {
             wrist_down_ms = 0;
@@ -254,11 +271,18 @@ extern "C" void app_entry_start(void)
 #if LUMARI_INPUT_DEBUG
         uint32_t last_input_log_ms = 0;
         int last_tx = 0, last_ty = 0;
+        bool input_diag_done = false;
 #endif
         for (;;) {
             uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000ULL);
             bool btn = input_hal_button_read() || power_service_poll_pwr_button_short();
 #if LUMARI_INPUT_DEBUG
+            if (!input_diag_done && now_ms >= 2500) {
+                int boot_level = gpio_get_level((gpio_num_t)BUTTON_BOOT_PIN);
+                ESP_LOGI("input_dbg", "INPUT DIAG: touch_ok=%d BOOT_GPIO0=%d (0=pressed) PWR=poll",
+                         input_hal_touch_ok() ? 1 : 0, boot_level);
+                input_diag_done = true;
+            }
             if (now_ms - last_input_log_ms >= 3000) {
                 int tx = 0, ty = 0;
                 bool touch = input_hal_touch_read(&tx, &ty);
@@ -311,6 +335,7 @@ extern "C" void app_entry_start(void)
                     storage_save_lore(cutscene_lore_get_bitfield());
                     cutscene_start(CUTSCENE_ID_EVOLUTION);
                 }
+                creature_engine_tick(now_ms);
                 imu_service_update();
                 unsigned step_delta = imu_service_get_step_delta();
                 if (step_delta > 0) {
@@ -318,7 +343,9 @@ extern "C" void app_entry_start(void)
                     quest_engine_add_progress(QUEST_TYPE_STEPS, step_delta);
                     if (quest_engine_just_completed()) completed = true;
                     creature_engine_add_steps(step_delta);
+                    creature_engine_set_happy_until_ms(now_ms + 2000);
                     if (completed) {
+                        creature_engine_set_happy_until_ms(now_ms + 2000);
                         storage_save_creature((uint32_t)creature_engine_get_xp(), (uint32_t)creature_engine_get_momentum());
                         storage_save_quest(quest_engine_get_current_quest_index(), quest_engine_get_progress());
                         storage_save_inventory(inventory_get_equipped(), inventory_get_unlocked_bitfield());
@@ -330,7 +357,9 @@ extern "C" void app_entry_start(void)
                 if (az_g < WRIST_DOWN_G) {
                     wrist_down_ms = (wrist_down_ms == 0) ? now_ms : wrist_down_ms;
                     wrist_up_ms = 0;
-                    if ((now_ms - wrist_down_ms) >= WRIST_DEBOUNCE_MS && !display_off) {
+                    if (now_ms >= WRIST_SLEEP_GRACE_MS &&
+                        (now_ms - wrist_down_ms) >= WRIST_DEBOUNCE_MS && !display_off) {
+                        creature_engine_set_mood(CREATURE_MOOD_SLEEP);
                         display_hal_sleep();
                         display_off = true;
                     }
@@ -340,6 +369,7 @@ extern "C" void app_entry_start(void)
                     if (display_off) {
                         display_hal_wake();
                         display_off = false;
+                        creature_engine_set_mood(CREATURE_MOOD_IDLE);
                     }
                 } else {
                     wrist_down_ms = 0;

@@ -237,3 +237,43 @@ void draw_ring(
         }
     }
 }
+
+#define TIME_DIGIT_W  5
+#define TIME_DIGIT_H  7
+#define TIME_COLON_W 2
+#define TIME_COLON_H 2
+#define TIME_SPACING 1
+
+static void draw_colon(uint16_t* fb, int x, int y, uint16_t color)
+{
+    draw_rect(fb, x, y + 2, TIME_COLON_W, TIME_COLON_H, color);
+    draw_rect(fb, x, y + 2 + 4, TIME_COLON_W, TIME_COLON_H, color);
+}
+
+void draw_two_digits(
+    uint16_t* framebuffer,
+    int x, int y, unsigned value,
+    uint16_t color
+)
+{
+    if (value > 99) value = 99;
+    /* draw_number is right-aligned: right edge at x. Tens at [x,x+5], ones at [x+6,x+11]. */
+    draw_number(framebuffer, x + (TIME_DIGIT_W + TIME_SPACING) - 1, y, value / 10, color);
+    draw_number(framebuffer, x + 2 * (TIME_DIGIT_W + TIME_SPACING) - 1, y, value % 10, color);
+}
+
+void draw_time(
+    uint16_t* framebuffer,
+    int x, int y, uint8_t hour, uint8_t min,
+    uint16_t color
+)
+{
+    int h12 = hour % 12;
+    if (h12 == 0) h12 = 12;
+    int cx = x;
+    draw_number(framebuffer, cx, y, (unsigned)h12, color);
+    cx += (h12 >= 10 ? 2 : 1) * (TIME_DIGIT_W + TIME_SPACING);
+    draw_colon(framebuffer, cx, y, color);
+    cx += TIME_COLON_W + TIME_SPACING;
+    draw_two_digits(framebuffer, cx, y, (unsigned)min, color);
+}

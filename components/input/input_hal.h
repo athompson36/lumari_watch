@@ -14,6 +14,9 @@ bool input_hal_touch_read(int *x, int *y);
 /* Button: returns true if currently pressed */
 bool input_hal_button_read(void);
 
+/* True if touch controller initialized successfully (for diagnostics). */
+bool input_hal_touch_ok(void);
+
 #if LUMARI_BOARD_WAVESHARE_ESP32_S3_AMOLED_2_06
 /* Shared I2C bus (touch + IMU + RTC). Call after input_hal_init(). */
 i2c_master_bus_handle_t input_hal_get_i2c_bus(void);

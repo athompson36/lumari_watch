@@ -49,3 +49,17 @@ void draw_ring(
     int cx, int cy, int r_inner, int r_outer,
     uint16_t color
 );
+
+/* Draw time as "H:MM" or "HH:MM" (12-hour). */
+void draw_time(
+    uint16_t* framebuffer,
+    int x, int y, uint8_t hour, uint8_t min,
+    uint16_t color
+);
+
+/* Draw two digits 00–99 with leading zero. */
+void draw_two_digits(
+    uint16_t* framebuffer,
+    int x, int y, unsigned value,
+    uint16_t color
+);
